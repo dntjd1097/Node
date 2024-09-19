@@ -56,7 +56,7 @@ function display_main_menu() {
     echo "===================== Elixir V3 Bob ========================="
     echo "1. Install Elixir V3"
     echo "2. Log Docker"
-    read -p "Choice竊 1-2竊 : " OPTION
+    read -p "Choice 1-2 : " OPTION
 
     case $OPTION in
     1) install_validator_node ;;
