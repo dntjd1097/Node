@@ -1,9 +1,6 @@
 #!/bin/bash
 
-
-
 SCRIPT_PATH="$HOME/ElixirV3.sh"
-
 function ensure_docker_installed() {
     if ! command -v docker &> /dev/null; then
         echo "[*]I can't install the docker, so I install it."
