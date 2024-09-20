@@ -95,7 +95,6 @@ view_logs() {
 
 main_menu() {
     while true; do
-        clear
         echo "1. Install"
         echo "2. View wallet"
         echo "3. run minner"
