@@ -45,6 +45,7 @@ install_go() {
 }
 
 download_and_setup() {
+    apt install jq -y
 	check_go_version
 	install_dependencies
     wget https://github.com/hemilabs/heminetwork/releases/download/v0.4.3/heminetwork_v0.4.3_linux_amd64.tar.gz -O heminetwork_v0.4.3_linux_amd64.tar.gz
