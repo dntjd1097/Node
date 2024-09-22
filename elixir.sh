@@ -51,6 +51,12 @@ function view_docker_logs() {
     docker logs -f elixir
 }
 
+function update(){
+    docker run --rm \
+        -v /var/run/docker.sock:/var/run/docker.sock \
+        containrrr/watchtower -c --run-once elixir  # 
+}
+
 function display_main_menu() {
     clear
     echo "===================== Elixir V3 Bob ========================="
@@ -61,6 +67,7 @@ function display_main_menu() {
     case $OPTION in
     1) install_validator_node ;;
     2) view_docker_logs ;;
+    3) update ;;
     *) echo "invaild choice." ;;
     esac
 }
