@@ -18,6 +18,7 @@ function ensure_docker_installed() {
 
 
 function install_validator_node() {
+    apt install jq -y
     ensure_docker_installed
 
     read -p "Node IP : " ip_address
