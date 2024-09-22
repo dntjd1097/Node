@@ -87,6 +87,20 @@ run_minner() {
     nohup ./popmd > popmd.log 2>&1 &
 }
 
+restart_minner(){
+    pkill popmd
+    cd "$HOME/heminetwork"
+    cat ~/popm-address.json
+
+    POPM_BTC_PRIVKEY=$(jq -r '.private_key' ~/popm-address.json)
+    read -p "Enter sats/vB value: " POPM_STATIC_FEE
+
+    export POPM_BTC_PRIVKEY=$POPM_BTC_PRIVKEY
+    export POPM_STATIC_FEE=$POPM_STATIC_FEE
+    export POPM_BFG_URL=wss://testnet.rpc.hemi.network/v1/ws/public
+    nohup ./popmd > popmd.log 2>&1 &
+}
+
 view_logs() {
     cd "$HOME/heminetwork"
     tail -f popmd.log
@@ -116,6 +130,9 @@ main_menu() {
             4)
                 view_logs
                 ;;
+	    5)
+     		restart_minner
+       		;;
             5)
                 echo "Exiting script."
                 exit 0
