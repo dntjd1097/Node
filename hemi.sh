@@ -74,7 +74,7 @@ view_wallet() {
     cat ~/popm-address.json
 }
 
-run_minner() {
+run_miner() {
     cd "$HOME/heminetwork"
     cat ~/popm-address.json
 
@@ -87,7 +87,7 @@ run_minner() {
     nohup ./popmd > popmd.log 2>&1 &
 }
 
-restart_minner(){
+restart_miner(){
     pkill popmd
     cd "$HOME/heminetwork"
     cat ~/popm-address.json
@@ -111,9 +111,10 @@ main_menu() {
     while true; do
         echo "1. Install"
         echo "2. View wallet"
-        echo "3. run minner"
+        echo "3. run miner"
         echo "4. View logs"
-        echo "5. Exit"
+	echo "5. restart miner"
+        echo "6. Exit"
 
         read -p "Enter choice (1-5): " choice
 
@@ -125,15 +126,15 @@ main_menu() {
                 view_wallet
                 ;;
             3)
-                run_minner
+                run_miner
                 ;;
             4)
                 view_logs
                 ;;
 	    5)
-     		restart_minner
+     		restart_miner
        		;;
-            5)
+            6)
                 echo "Exiting script."
                 exit 0
                 ;;
