@@ -133,25 +133,25 @@ EOL
         spawn ./vanacli wallet create --wallet.name $VANA_WALLET_NAME --wallet.hotkey $VANA_HOTKEY_NAME
         expect "Your coldkey mnemonic phrase:"
         expect -re {│\s+([\w\s]+)\s+│}
-        set coldkey_mnemonic \$expect_out(1,string)
+        set VANA_COLDKEY_MNEMONIC \$expect_out(1,string)
         expect "Specify password for key encryption:"
         send "$VANA_WALLET_PASSWORD\r"
         expect "Retype your password:"
         send "$VANA_WALLET_PASSWORD\r"
         expect "Your hotkey mnemonic phrase:"
         expect -re {│\s+([\w\s]+)\s+│}
-        set hotkey_mnemonic \$expect_out(1,string)
+        set VANA_HOTKEY_MNEMONIC \$expect_out(1,string)
         expect eof
 EOF
         
         # 니모닉 추출 및 저장 (ANSI 코드 제거)
-        COLDKEY_MNEMONIC=$(grep -A 2 "Your coldkey mnemonic phrase:" "$TEMP_MNEMONIC" | tail -n 1 | sed 's/│//g' | sed -r "s/\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g" | xargs)
-        HOTKEY_MNEMONIC=$(grep -A 2 "Your hotkey mnemonic phrase:" "$TEMP_MNEMONIC" | tail -n 1 | sed 's/│//g' | sed -r "s/\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g" | xargs)
+        VANA_COLDKEY_MNEMONIC=$(grep -A 2 "Your coldkey mnemonic phrase:" "$TEMP_MNEMONIC" | tail -n 1 | sed 's/│//g' | sed -r "s/\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g" | xargs)
+        VANA_HOTKEY_MNEMONIC=$(grep -A 2 "Your hotkey mnemonic phrase:" "$TEMP_MNEMONIC" | tail -n 1 | sed 's/│//g' | sed -r "s/\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g" | xargs)
         
         # .mnemonic 파일에 저장
         cat > ~/.mnemonic << EOL
-COLDKEY_MNEMONIC="$COLDKEY_MNEMONIC"
-HOTKEY_MNEMONIC="$HOTKEY_MNEMONIC"
+VANA_COLDKEY_MNEMONIC="$VANA_COLDKEY_MNEMONIC"
+VANA_HOTKEY_MNEMONIC="$VANA_HOTKEY_MNEMONIC"
 EOL
         
         # 임시 파일 삭제
@@ -620,19 +620,143 @@ log(){
 	sudo journalctl -u vana.service -f
 }
 
+set_all_env_vars() {
+    echo "Setting up all environment variables..."
+    echo "----------------------------------------"
+    
+    # Basic Wallet Configuration
+    echo "Basic Wallet Configuration:"
+    read -p "Enter Wallet Name (default: default): " VANA_WALLET_NAME
+    VANA_WALLET_NAME=${VANA_WALLET_NAME:-"default"}
+
+    read -p "Enter Hotkey Name (default: default): " VANA_HOTKEY_NAME
+    VANA_HOTKEY_NAME=${VANA_HOTKEY_NAME:-"default"}
+
+    read -s -p "Enter Wallet Password: " VANA_WALLET_PASSWORD
+    echo
+
+    # Mnemonic Phrases
+    echo -e "\nMnemonic Phrases:"
+    read -p "Enter Coldkey Mnemonic (12 words): " COLDKEY_MNEMONIC
+    read -p "Enter Hotkey Mnemonic (12 words): " HOTKEY_MNEMONIC
+
+    # Validator Information
+    echo -e "\nValidator Information:"
+    read -p "Enter Validator Name: " VANA_VALIDATOR_NAME
+    read -p "Enter Validator Email: " VANA_VALIDATOR_EMAIL
+    read -p "Enter Key Expiry (days, default: 0): " VANA_KEY_EXPIRY
+    VANA_KEY_EXPIRY=${VANA_KEY_EXPIRY:-"0"}
+
+    # DLP Configuration
+    echo -e "\nDLP Configuration:"
+    read -p "Enter DLP Name: " VANA_DLP_NAME
+    read -p "Enter DLP Token Name: " VANA_DLP_TOKEN_NAME
+    read -p "Enter DLP Token Symbol: " VANA_DLP_TOKEN_SYMBOL
+
+    # API Keys
+    echo -e "\nAPI Configuration:"
+    read -p "Enter OpenAI API Key: " OPENAI_API_KEY
+
+    # Wallet Keys
+    echo -e "\nWallet Keys Configuration:"
+    read -p "Enter Coldkey Private Key (0x...): " VANA_COLDKEY_PRIVATE_KEY
+	read -p "Enter ColdKey Mnemonic (12 words): " COLDKEY_MNEMONIC
+    read -p "Enter Coldkey Public Address (0x...): " VANA_COLDKEY_ADDRESS
+    read -p "Enter Hotkey Private Key (0x...): " VANA_HOTKEY_PRIVATE_KEY
+	read -p "Enter Hotkey Mnemonic (12 words): " HOTKEY_MNEMONIC
+    read -p "Enter Hotkey Public Address (0x...): " VANA_HOTKEY_ADDRESS
+
+    # Contract Addresses
+    echo -e "\nContract Addresses:"
+    read -p "Enter DLP Token Moksha Contract Address: " VANA_DLP_TOKEN_MOKSHA_CONTRACT
+    read -p "Enter DLP Moksha Contract Address: " VANA_DLP_MOKSHA_CONTRACT
+
+    # Save mnemonic phrases to separate file for extra security
+    
+
+    
+
+    # Save all other variables to .walletaccount
+    cat > ~/.walletaccount << EOL
+# Basic Wallet Configuration
+export VANA_WALLET_NAME="${VANA_WALLET_NAME}"
+export VANA_HOTKEY_NAME="${VANA_HOTKEY_NAME}"
+export VANA_WALLET_PASSWORD="${VANA_WALLET_PASSWORD}"
+
+# Validator Information
+export VANA_VALIDATOR_NAME="${VANA_VALIDATOR_NAME}"
+export VANA_VALIDATOR_EMAIL="${VANA_VALIDATOR_EMAIL}"
+export VANA_KEY_EXPIRY="${VANA_KEY_EXPIRY}"
+
+# DLP Configuration
+export VANA_DLP_NAME="${VANA_DLP_NAME}"
+export VANA_DLP_TOKEN_NAME="${VANA_DLP_TOKEN_NAME}"
+export VANA_DLP_TOKEN_SYMBOL="${VANA_DLP_TOKEN_SYMBOL}"
+
+# API Keys
+export OPENAI_API_KEY="${OPENAI_API_KEY}"
+
+# Wallet Keys
+export VANA_COLDKEY_PRIVATE_KEY="${VANA_COLDKEY_PRIVATE_KEY}"
+export VANA_COLDKEY_MNEMONIC="${COLDKEY_MNEMONIC}"
+export VANA_COLDKEY_ADDRESS="${VANA_COLDKEY_ADDRESS}"
+export VANA_HOTKEY_PRIVATE_KEY="${VANA_HOTKEY_PRIVATE_KEY}"
+export VANA_HOTKEY_MNEMONIC="${HOTKEY_MNEMONIC}"
+export VANA_HOTKEY_ADDRESS="${VANA_HOTKEY_ADDRESS}"
+
+# Contract Addresses
+export VANA_DLP_TOKEN_MOKSHA_CONTRACT="${VANA_DLP_TOKEN_MOKSHA_CONTRACT}"
+export VANA_DLP_MOKSHA_CONTRACT="${VANA_DLP_MOKSHA_CONTRACT}"
+
+
+EOL
+
+    # Ensure .walletaccount is sourced
+    if ! grep -q "source ~/.walletaccount" ~/.profile; then
+        echo 'source ~/.walletaccount' >> ~/.profile
+    fi
+    source ~/.walletaccount
+
+    echo -e "\nAll environment variables have been set and saved"
+    echo "Other configurations saved to ~/.walletaccount"
+    
+    # Display current settings
+    echo -e "\nCurrent Settings:"
+    echo "----------------------------------------"
+    echo "Wallet Name: $VANA_WALLET_NAME"
+    echo "Hotkey Name: $VANA_HOTKEY_NAME"
+    echo "Validator Name: $VANA_VALIDATOR_NAME"
+    echo "Validator Email: $VANA_VALIDATOR_EMAIL"
+    echo "DLP Name: $VANA_DLP_NAME"
+    echo "DLP Token Name: $VANA_DLP_TOKEN_NAME"
+    echo "DLP Token Symbol: $VANA_DLP_TOKEN_SYMBOL"
+    echo "Coldkey Address: $VANA_COLDKEY_ADDRESS"
+    echo "Hotkey Address: $VANA_HOTKEY_ADDRESS"
+    echo "DLP Token Contract: $VANA_DLP_TOKEN_MOKSHA_CONTRACT"
+    echo "DLP Contract: $VANA_DLP_MOKSHA_CONTRACT"
+    echo -e "\nMnemonic phrases are stored in ~/.mnemonic"
+    echo "----------------------------------------"
+
+    # Display warning about security
+    echo -e "\nWARNING: Your mnemonic phrases and private keys are sensitive information."
+    echo "Make sure to keep  ~/.walletaccount secure and backed up safely."
+}
 
 main_menu() {
     while true; do
+        echo "========== VANA VALIDATOR MENU =========="
         echo "1. Install"
-        echo "2. export wallet"
-        echo "3. setup dlp smart contracts"
-        echo "4. verify"
-		echo "5. run"
-        echo "6. service"
-		echo "7. log"
-		echo "8. exit"
-
-        read -p "Enter choice (1-5): " choice
+        echo "2. Export wallet"
+        echo "3. Setup DLP smart contracts"
+        echo "4. Verify"
+        echo "5. Run"
+        echo "6. Service"
+        echo "7. Log"
+        echo "8. Settings"
+        echo "9. Exit"
+        echo "========================================"
+        
+        read -p "Enter choice (1-9): " choice
 
         case $choice in
             1)
@@ -647,22 +771,30 @@ main_menu() {
             4)
                 verifyF
                 ;;
-			5)
-				run
-				;;
+            5)
+                run
+                ;;
             6)
                 service
                 ;;
-			7)
-				log
-				;;
-			8)
-				exit 0
-				;;
+            7)
+                log
+                ;;
+            8)
+                set_all_env_vars
+                ;;
+            9)
+                echo "Exiting..."
+                exit 0
+                ;;
             *)
                 echo "Invalid option, please try again."
                 ;;
         esac
+        
+        echo -e "\nPress Enter to continue..."
+        read
+        clear
     done
 }
 
