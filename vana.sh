@@ -77,13 +77,34 @@ download_and_setup() {
     
     create_wallet_config
     
-    # 자동으로 입력 제공
+    # wallet 설정
+    VANA_WALLET_NAME="default"
+    VANA_HOTKEY_NAME="default"
+    
+    # 비밀번호 입력 받기
+    echo -n "Enter wallet password: "
+    read -s VANA_WALLET_PASSWORD
+    echo  # 줄바꿈을 위해
+    
+    # .walletaccount 파일에 저장
+    cat > ~/.walletaccount << EOL
+export VANA_WALLET_NAME="${VANA_WALLET_NAME}"
+export VANA_HOTKEY_NAME="${VANA_HOTKEY_NAME}"
+export VANA_WALLET_PASSWORD="${VANA_WALLET_PASSWORD}"
+EOL
+    
+    if ! grep -q "source ~/.walletaccount" ~/.profile; then
+        echo 'source ~/.walletaccount' >> ~/.profile
+    fi
+    source ~/.walletaccount
+    
+    # wallet 생성
     expect << EOF
     spawn ./vanacli wallet create --wallet.name $VANA_WALLET_NAME --wallet.hotkey $VANA_HOTKEY_NAME
     expect "Specify password for key encryption:"
     send "$VANA_WALLET_PASSWORD\r"
-	expect "Retype your password:"
-	send "$VANA_WALLET_PASSWORD\r"
+    expect "Retype your password:"
+    send "$VANA_WALLET_PASSWORD\r"
     expect eof
 EOF
 }
