@@ -106,6 +106,7 @@ download_and_setup() {
         spawn ./vanacli w regen_coldkey --mnemonic "$VANA_COLDKEY_MNEMONIC"
         expect "Enter wallet name"
         send "default\r"
+        expect "Your coldkey mnemonic phrase:"
         expect "Specify password for key encryption:"
         send "$VANA_WALLET_PASSWORD\r"
         expect "Retype your password:"
@@ -120,6 +121,7 @@ EOF
         send "default\r"
         expect "Enter hotkey name"
         send "default\r"
+        expect "Your hotkey mnemonic phrase:"
         expect eof
 EOF
         echo "Keys regenerated successfully"
@@ -647,11 +649,6 @@ set_all_env_vars() {
     read -s -p "Enter Wallet Password: " VANA_WALLET_PASSWORD
     echo
 
-    # Mnemonic Phrases
-    echo -e "\nMnemonic Phrases:"
-    read -p "Enter Coldkey Mnemonic (12 words): " COLDKEY_MNEMONIC
-    read -p "Enter Hotkey Mnemonic (12 words): " HOTKEY_MNEMONIC
-
     # Validator Information
     echo -e "\nValidator Information:"
     read -p "Enter Validator Name: " VANA_VALIDATOR_NAME
@@ -755,6 +752,7 @@ EOL
 }
 
 main_menu() {
+	apt get install -y expect
     while true; do
         echo "========== VANA VALIDATOR MENU =========="
         echo "1. Install"
