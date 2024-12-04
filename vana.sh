@@ -115,14 +115,38 @@ EOL
     # .vana/wallets/{WALLET_NAME} 디렉토리가 없는 경우에만 wallet 생성
     WALLET_DIR="$HOME/.vana/wallets/$VANA_WALLET_NAME"
     if [ ! -d "$WALLET_DIR" ]; then
-        expect << EOF
+        # 니모닉을 저장할 임시 파일
+        TEMP_MNEMONIC=$(mktemp)
+        
+        expect << EOF | tee "$TEMP_MNEMONIC"
         spawn ./vanacli wallet create --wallet.name $VANA_WALLET_NAME --wallet.hotkey $VANA_HOTKEY_NAME
+        expect "Your coldkey mnemonic phrase:"
+        expect -re {│\s+([\w\s]+)\s+│}
+        set coldkey_mnemonic \$expect_out(1,string)
         expect "Specify password for key encryption:"
         send "$VANA_WALLET_PASSWORD\r"
         expect "Retype your password:"
         send "$VANA_WALLET_PASSWORD\r"
+        expect "Your hotkey mnemonic phrase:"
+        expect -re {│\s+([\w\s]+)\s+│}
+        set hotkey_mnemonic \$expect_out(1,string)
         expect eof
 EOF
+        
+        # 니모닉 추출 및 저장
+        COLDKEY_MNEMONIC=$(grep -A 2 "Your coldkey mnemonic phrase:" "$TEMP_MNEMONIC" | tail -n 1 | sed 's/│//g' | tr -d '[:space:]')
+        HOTKEY_MNEMONIC=$(grep -A 2 "Your hotkey mnemonic phrase:" "$TEMP_MNEMONIC" | tail -n 1 | sed 's/│//g' | tr -d '[:space:]')
+        
+        # .mnemonic 파일에 저장
+        cat > ~/.mnemonic << EOL
+COLDKEY_MNEMONIC="$COLDKEY_MNEMONIC"
+HOTKEY_MNEMONIC="$HOTKEY_MNEMONIC"
+EOL
+        
+        # 임시 파일 삭제
+        rm "$TEMP_MNEMONIC"
+        
+        echo "Mnemonic phrases have been saved to ~/.mnemonic"
     else
         echo "Wallet directory already exists. Skipping wallet creation."
     fi
