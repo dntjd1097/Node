@@ -402,8 +402,8 @@ EOF
     DEPLOY_OUTPUT=$(npx hardhat deploy --network moksha --tags DLPDeploy)
     
     # Extract contract addresses using grep and awk
-    VANA_DLP_TOKEN_MOKSHA_CONTRACT=$(echo "$DEPLOY_OUTPUT" | grep "DataLiquidityPoolToken deployed at:" | awk '{print $NF}')
-    VANA_DLP_MOKSHA_CONTRACT=$(echo "$DEPLOY_OUTPUT" | grep "DataLiquidityPool.*deployed at:" | awk '{print $NF}')
+    VANA_DLP_TOKEN_MOKSHA_CONTRACT=$(echo "$DEPLOY_OUTPUT" | grep "DataLiquidityPoolToken deployed at:" | awk '{print $NF}' | head -n 1)
+    VANA_DLP_MOKSHA_CONTRACT=$(echo "$DEPLOY_OUTPUT" | grep "DataLiquidityPool \"[^\"]*\" deployed at:" | awk '{print $NF}' | head -n 1)
     
     # Verify if addresses were found
     if [ ! -z "$VANA_DLP_TOKEN_MOKSHA_CONTRACT" ] && [ ! -z "$VANA_DLP_MOKSHA_CONTRACT" ]; then
