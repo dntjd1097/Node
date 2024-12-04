@@ -397,16 +397,106 @@ EOF
     sed -i "s/^DLP_TOKEN_NAME=J.*/DLP_TOKEN_NAME=${VANA_DLP_TOKEN_NAME}/" .env
     sed -i "s/^DLP_TOKEN_SYMBOL=J.*/DLP_TOKEN_SYMBOL=${VANA_DLP_TOKEN_SYMBOL}/" .env
     
-    npx hardhat deploy --network moksha --tags DLPDeploy
+    # Deploy contracts and capture output
+    echo "Deploying contracts..."
+    DEPLOY_OUTPUT=$(npx hardhat deploy --network moksha --tags DLPDeploy)
+    
+    # Extract contract addresses using grep and awk
+    VANA_DLP_TOKEN_MOKSHA_CONTRACT=$(echo "$DEPLOY_OUTPUT" | grep "DataLiquidityPoolToken deployed at:" | awk '{print $NF}')
+    VANA_DLP_MOKSHA_CONTRACT=$(echo "$DEPLOY_OUTPUT" | grep "DataLiquidityPool.*deployed at:" | awk '{print $NF}')
+    
+    # Verify if addresses were found
+    if [ ! -z "$VANA_DLP_TOKEN_MOKSHA_CONTRACT" ] && [ ! -z "$VANA_DLP_MOKSHA_CONTRACT" ]; then
+        echo "Successfully deployed contracts:"
+        echo "VANA_DLP_TOKEN_MOKSHA_CONTRACT: $VANA_DLP_TOKEN_MOKSHA_CONTRACT"
+        echo "VANA_DLP_MOKSHA_CONTRACT: $VANA_DLP_MOKSHA_CONTRACT"
+        
+        # Update .walletaccount with new contract addresses
+        if [ -f ~/.walletaccount ]; then
+            # Remove existing contract addresses if they exist
+            sed -i '/VANA_DLP_TOKEN_MOKSHA_CONTRACT/d' ~/.walletaccount
+            sed -i '/VANA_DLP_MOKSHA_CONTRACT/d' ~/.walletaccount
+            
+            # Add new contract addresses
+            echo "export VANA_DLP_TOKEN_MOKSHA_CONTRACT=\"${VANA_DLP_TOKEN_MOKSHA_CONTRACT}\"" >> ~/.walletaccount
+            echo "export VANA_DLP_MOKSHA_CONTRACT=\"${VANA_DLP_MOKSHA_CONTRACT}\"" >> ~/.walletaccount
+        else
+            # Create new .walletaccount file with contract addresses
+            cat > ~/.walletaccount << EOL
+export VANA_DLP_TOKEN_MOKSHA_CONTRACT="${VANA_DLP_TOKEN_MOKSHA_CONTRACT}"
+export VANA_DLP_MOKSHA_CONTRACT="${VANA_DLP_MOKSHA_CONTRACT}"
+EOL
+        fi
+        
+        source ~/.walletaccount
+        echo "Contract addresses have been saved to ~/.walletaccount"
+    else
+        echo "Failed to capture contract addresses from deployment output"
+        return 1
+    fi
 }
 
 verifyF() {
-	set_env
-	cd "$HOME/vana-dlp-smart-contracts"
-	read -p "DLP_TOKEN_MOKSHA_CONTRACT: " token_contract
-	read -p "DLP_MOKSHA_CONTRACT: " pool_contract
-	npx hardhat verify --network moksha ${pool_contract}
-	npx hardhat verify --network moksha ${token_contract} "${DLP_TOKEN_NAME}" ${DLP_TOKEN_SYMBOL} ${ip_address}
+    set_env
+    cd "$HOME/vana-dlp-smart-contracts"
+    
+    # Load environment variables from .walletaccount
+    source ~/.walletaccount 2>/dev/null || true
+    
+    # Check if contract addresses exist
+    if [ -z "$VANA_DLP_TOKEN_MOKSHA_CONTRACT" ] || [ -z "$VANA_DLP_MOKSHA_CONTRACT" ]; then
+        echo "Contract addresses not found in .walletaccount"
+        echo "Please run option 3 first to deploy contracts, or enter addresses manually"
+        read -p "Would you like to enter addresses manually? (y/n): " manual_input
+        if [[ $manual_input == "y" ]]; then
+            read -p "DLP_TOKEN_MOKSHA_CONTRACT: " VANA_DLP_TOKEN_MOKSHA_CONTRACT
+            read -p "DLP_MOKSHA_CONTRACT: " VANA_DLP_MOKSHA_CONTRACT
+            
+            # Save to .walletaccount
+            if [ -f ~/.walletaccount ]; then
+                sed -i '/VANA_DLP_TOKEN_MOKSHA_CONTRACT/d' ~/.walletaccount
+                sed -i '/VANA_DLP_MOKSHA_CONTRACT/d' ~/.walletaccount
+            fi
+            echo "export VANA_DLP_TOKEN_MOKSHA_CONTRACT=\"${VANA_DLP_TOKEN_MOKSHA_CONTRACT}\"" >> ~/.walletaccount
+            echo "export VANA_DLP_MOKSHA_CONTRACT=\"${VANA_DLP_MOKSHA_CONTRACT}\"" >> ~/.walletaccount
+            source ~/.walletaccount
+        else
+            echo "Verification cancelled"
+            return 1
+        fi
+    fi
+    
+    # Check if DLP token information exists
+    if [ -z "$VANA_DLP_TOKEN_NAME" ] || [ -z "$VANA_DLP_TOKEN_SYMBOL" ]; then
+        echo "DLP token information not found in .walletaccount"
+        read -p "Enter DLP_TOKEN_NAME: " VANA_DLP_TOKEN_NAME
+        read -p "Enter DLP_TOKEN_SYMBOL: " VANA_DLP_TOKEN_SYMBOL
+        
+        # Save to .walletaccount
+        if [ -f ~/.walletaccount ]; then
+            sed -i '/VANA_DLP_TOKEN_NAME/d' ~/.walletaccount
+            sed -i '/VANA_DLP_TOKEN_SYMBOL/d' ~/.walletaccount
+        fi
+        echo "export VANA_DLP_TOKEN_NAME=\"${VANA_DLP_TOKEN_NAME}\"" >> ~/.walletaccount
+        echo "export VANA_DLP_TOKEN_SYMBOL=\"${VANA_DLP_TOKEN_SYMBOL}\"" >> ~/.walletaccount
+        source ~/.walletaccount
+    fi
+    
+    echo "Verifying contracts..."
+    echo "Pool Contract: $VANA_DLP_MOKSHA_CONTRACT"
+    echo "Token Contract: $VANA_DLP_TOKEN_MOKSHA_CONTRACT"
+    echo "Token Name: $VANA_DLP_TOKEN_NAME"
+    echo "Token Symbol: $VANA_DLP_TOKEN_SYMBOL"
+    
+    # Get public IP address
+    ip_address=$(curl -s ifconfig.me)
+    
+    # Verify contracts
+    echo "Verifying Pool Contract..."
+    npx hardhat verify --network moksha ${VANA_DLP_MOKSHA_CONTRACT}
+    
+    echo "Verifying Token Contract..."
+    npx hardhat verify --network moksha ${VANA_DLP_TOKEN_MOKSHA_CONTRACT} "${VANA_DLP_TOKEN_NAME}" "${VANA_DLP_TOKEN_SYMBOL}" "${ip_address}"
 }
 
 
