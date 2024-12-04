@@ -168,6 +168,34 @@ export_private_key() {
     set_env
     cd "$HOME/vana-dlp-chatgpt"
     
+    # Install web3 if not installed
+    if ! python3 -c "import web3" 2>/dev/null; then
+        echo "Installing web3 package..."
+        pip3 install web3
+    fi
+    
+    # Create temporary Python script for address generation
+    cat > /tmp/generate_eth_address.py << 'EOL'
+from web3 import Web3
+import sys
+
+def get_address_from_private_key(private_key):
+    private_key = private_key.replace("0x", "")
+    w3 = Web3()
+    try:
+        account = w3.eth.account.from_key(private_key)
+        return account.address
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return None
+
+if len(sys.argv) > 1:
+    private_key = sys.argv[1]
+    address = get_address_from_private_key(private_key)
+    if address:
+        print(address)
+EOL
+    
     # Load wallet configuration
     source ~/.walletaccount 2>/dev/null || true
     
@@ -194,6 +222,13 @@ EOF
     COLDKEY_PRIVATE_KEY=$(grep -oP '0x[a-fA-F0-9]{64}' "$TEMP_COLDKEY" | head -n 1)
     rm "$TEMP_COLDKEY"
 
+    # Generate coldkey address if private key was found
+    if [ ! -z "$COLDKEY_PRIVATE_KEY" ]; then
+        echo "Generating coldkey address..."
+        COLDKEY_ADDRESS=$(python3 /tmp/generate_eth_address.py "$COLDKEY_PRIVATE_KEY")
+        echo "Coldkey Address: $COLDKEY_ADDRESS"
+    fi
+
     # Export hotkey using expect
     echo "Exporting hotkey..."
     TEMP_HOTKEY=$(mktemp)
@@ -210,17 +245,31 @@ EOF
     HOTKEY_PRIVATE_KEY=$(grep -oP '0x[a-fA-F0-9]{64}' "$TEMP_HOTKEY" | head -n 1)
     rm "$TEMP_HOTKEY"
     
-    # Save private keys to .walletaccount if they were successfully exported
+    # Generate hotkey address if private key was found
+    if [ ! -z "$HOTKEY_PRIVATE_KEY" ]; then
+        echo "Generating hotkey address..."
+        HOTKEY_ADDRESS=$(python3 /tmp/generate_eth_address.py "$HOTKEY_PRIVATE_KEY")
+        echo "Hotkey Address: $HOTKEY_ADDRESS"
+    fi
+    
+    # Clean up temporary Python script
+    rm /tmp/generate_eth_address.py
+    
+    # Save private keys and addresses to .walletaccount if they were successfully exported
     if [ ! -z "$COLDKEY_PRIVATE_KEY" ] && [ ! -z "$HOTKEY_PRIVATE_KEY" ]; then
-        # Remove existing private key entries if they exist
+        # Remove existing entries if they exist
         sed -i '/VANA_COLDKEY_PRIVATE_KEY/d' ~/.walletaccount
         sed -i '/VANA_HOTKEY_PRIVATE_KEY/d' ~/.walletaccount
+        sed -i '/VANA_COLDKEY_ADDRESS/d' ~/.walletaccount
+        sed -i '/VANA_HOTKEY_ADDRESS/d' ~/.walletaccount
         
-        # Add new private keys
+        # Add new private keys and addresses
         echo "export VANA_COLDKEY_PRIVATE_KEY=\"${COLDKEY_PRIVATE_KEY}\"" >> ~/.walletaccount
         echo "export VANA_HOTKEY_PRIVATE_KEY=\"${HOTKEY_PRIVATE_KEY}\"" >> ~/.walletaccount
+        echo "export VANA_COLDKEY_ADDRESS=\"${COLDKEY_ADDRESS}\"" >> ~/.walletaccount
+        echo "export VANA_HOTKEY_ADDRESS=\"${HOTKEY_ADDRESS}\"" >> ~/.walletaccount
         
-        echo "Private keys have been saved to ~/.walletaccount"
+        echo "Private keys and addresses have been saved to ~/.walletaccount"
     else
         echo "Failed to export one or both private keys"
     fi
