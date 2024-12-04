@@ -275,12 +275,101 @@ EOF
     fi
 }
 
-setup_dlp_smart_contracts(){
-	set_env
+setup_dlp_smart_contracts() {
+    set_env
     cd "$HOME/vana-dlp-chatgpt"
-	
-	# expect를 사용하여 keygen.sh 실행 시 환경변수에서 값을 가져와 사용
-	expect << EOF
+    
+    # Load existing environment variables
+    source ~/.walletaccount 2>/dev/null || true
+    
+    # Check validator info variables
+    if [ -z "$VANA_VALIDATOR_NAME" ]; then
+        read -p "Enter your name: " VANA_VALIDATOR_NAME
+    fi
+
+    if [ -z "$VANA_VALIDATOR_EMAIL" ]; then
+        read -p "Enter your email: " VANA_VALIDATOR_EMAIL
+    fi
+
+    if [ -z "$VANA_KEY_EXPIRY" ]; then
+        read -p "Enter key expiration in days: " VANA_KEY_EXPIRY
+    fi
+
+    # Check wallet variables
+    if [ -z "$VANA_COLDKEY_ADDRESS" ] || [ -z "$VANA_COLDKEY_PRIVATE_KEY" ]; then
+        echo "Wallet information not found. Please run 'export wallet' first to generate keys."
+        read -p "Would you like to continue with manual input? (y/n): " continue_input
+        if [[ $continue_input == "y" ]]; then
+            read -p "Enter wallet address (0x...): " VANA_COLDKEY_ADDRESS
+            read -p "Enter wallet private key (0x...): " VANA_COLDKEY_PRIVATE_KEY
+        else
+            return 1
+        fi
+    fi
+
+    # Check DLP variables
+    if [ -z "$VANA_DLP_NAME" ]; then
+        read -p "Enter DLP_NAME: " VANA_DLP_NAME
+    fi
+
+    if [ -z "$VANA_DLP_TOKEN_NAME" ]; then
+        read -p "Enter DLP_TOKEN_NAME: " VANA_DLP_TOKEN_NAME
+    fi
+
+    if [ -z "$VANA_DLP_TOKEN_SYMBOL" ]; then
+        read -p "Enter DLP_TOKEN_SYMBOL: " VANA_DLP_TOKEN_SYMBOL
+    fi
+
+    # Update .walletaccount file
+    if [ -f ~/.walletaccount ]; then
+        # Remove existing entries
+        sed -i "/VANA_VALIDATOR_NAME/d" ~/.walletaccount
+        sed -i "/VANA_VALIDATOR_EMAIL/d" ~/.walletaccount
+        sed -i "/VANA_KEY_EXPIRY/d" ~/.walletaccount
+        sed -i "/VANA_DLP_NAME/d" ~/.walletaccount
+        sed -i "/VANA_DLP_TOKEN_NAME/d" ~/.walletaccount
+        sed -i "/VANA_DLP_TOKEN_SYMBOL/d" ~/.walletaccount
+        
+        # Add/update entries
+        echo "export VANA_VALIDATOR_NAME=\"${VANA_VALIDATOR_NAME}\"" >> ~/.walletaccount
+        echo "export VANA_VALIDATOR_EMAIL=\"${VANA_VALIDATOR_EMAIL}\"" >> ~/.walletaccount
+        echo "export VANA_KEY_EXPIRY=\"${VANA_KEY_EXPIRY}\"" >> ~/.walletaccount
+        echo "export VANA_DLP_NAME=\"${VANA_DLP_NAME}\"" >> ~/.walletaccount
+        echo "export VANA_DLP_TOKEN_NAME=\"${VANA_DLP_TOKEN_NAME}\"" >> ~/.walletaccount
+        echo "export VANA_DLP_TOKEN_SYMBOL=\"${VANA_DLP_TOKEN_SYMBOL}\"" >> ~/.walletaccount
+        
+        # Add wallet info if manually entered
+        if [[ $continue_input == "y" ]]; then
+            sed -i "/VANA_COLDKEY_ADDRESS/d" ~/.walletaccount
+            sed -i "/VANA_COLDKEY_PRIVATE_KEY/d" ~/.walletaccount
+            echo "export VANA_COLDKEY_ADDRESS=\"${VANA_COLDKEY_ADDRESS}\"" >> ~/.walletaccount
+            echo "export VANA_COLDKEY_PRIVATE_KEY=\"${VANA_COLDKEY_PRIVATE_KEY}\"" >> ~/.walletaccount
+        fi
+    else
+        # Create new .walletaccount file
+        cat > ~/.walletaccount << EOL
+export VANA_VALIDATOR_NAME="${VANA_VALIDATOR_NAME}"
+export VANA_VALIDATOR_EMAIL="${VANA_VALIDATOR_EMAIL}"
+export VANA_KEY_EXPIRY="${VANA_KEY_EXPIRY}"
+export VANA_DLP_NAME="${VANA_DLP_NAME}"
+export VANA_DLP_TOKEN_NAME="${VANA_DLP_TOKEN_NAME}"
+export VANA_DLP_TOKEN_SYMBOL="${VANA_DLP_TOKEN_SYMBOL}"
+EOL
+        # Add wallet info if manually entered
+        if [[ $continue_input == "y" ]]; then
+            echo "export VANA_COLDKEY_ADDRESS=\"${VANA_COLDKEY_ADDRESS}\"" >> ~/.walletaccount
+            echo "export VANA_COLDKEY_PRIVATE_KEY=\"${VANA_COLDKEY_PRIVATE_KEY}\"" >> ~/.walletaccount
+        fi
+    fi
+
+    # Ensure .walletaccount is sourced
+    if ! grep -q "source ~/.walletaccount" ~/.profile; then
+        echo 'source ~/.walletaccount' >> ~/.profile
+    fi
+    source ~/.walletaccount
+
+    # Continue with keygen.sh
+    expect << EOF
     spawn ./keygen.sh
     expect "Enter your name"
     send "${VANA_VALIDATOR_NAME}\r"
@@ -290,47 +379,25 @@ setup_dlp_smart_contracts(){
     send "${VANA_KEY_EXPIRY}\r"
     expect eof
 EOF
-	
-	cd $HOME
-	rm -rf vana-dlp-smart-contracts
-	git clone https://github.com/Josephtran102/vana-dlp-smart-contracts
-	cd "$HOME/vana-dlp-smart-contracts"
-	npm install -g yarn
-	yarn --version
-	yarn install
-	cp .env.example .env
-	cd "$HOME/vana-dlp-smart-contracts"
-	echo "+++++++++++++++++"
-	
-	# Check if environment variables exist, if not prompt for input
-	WALLET_ADDRESS=${VANA_WALLET_ADDRESS:-$(read -p "wallet address (0x...): " addr && echo $addr)}
-	PRIVATE_KEY=${VANA_PRIVATE_KEY:-$(read -p "wallet private key (0x...): " key && echo $key)}
-	DLP_NAME=${VANA_DLP_NAME:-$(read -p "DLP_NAME: " name && echo $name)}
-	DLP_TOKEN_NAME=${VANA_DLP_TOKEN_NAME:-$(read -p "DLP_TOKEN_NAME: " token_name && echo $token_name)}
-	DLP_TOKEN_SYMBOL=${VANA_DLP_TOKEN_SYMBOL:-$(read -p "DLP_TOKEN_SYMBOL: " symbol && echo $symbol)}
-	
-	# Save to ~/.walletaccount if not already saved
-	if [ ! -f ~/.walletaccount ]; then
-		cat > ~/.walletaccount << EOL
-export VANA_WALLET_ADDRESS="${WALLET_ADDRESS}"
-export VANA_PRIVATE_KEY="${PRIVATE_KEY}"
-export VANA_DLP_NAME="${DLP_NAME}"
-export VANA_DLP_TOKEN_NAME="${DLP_TOKEN_NAME}"
-export VANA_DLP_TOKEN_SYMBOL="${DLP_TOKEN_SYMBOL}"
-EOL
-		# Add source line to .profile if not already there
-		if ! grep -q "source ~/.walletaccount" ~/.profile; then
-			echo 'source ~/.walletaccount' >> ~/.profile
-		fi
-		source ~/.walletaccount
-	fi
-	
-	sed -i "s/^DEPLOYER_PRIVATE_KEY=0xef.*/DEPLOYER_PRIVATE_KEY=${PRIVATE_KEY}/" .env
-	sed -i "s/^OWNER_ADDRESS=0x7B.*/OWNER_ADDRESS=${WALLET_ADDRESS}/" .env
-	sed -i "s/^DLP_NAME=J.*/DLP_NAME=${DLP_NAME}/" .env
-	sed -i "s/^DLP_TOKEN_NAME=J.*/DLP_TOKEN_NAME=${DLP_TOKEN_NAME}/" .env
-	sed -i "s/^DLP_TOKEN_SYMBOL=J.*/DLP_TOKEN_SYMBOL=${DLP_TOKEN_SYMBOL}/" .env
-	npx hardhat deploy --network moksha --tags DLPDeploy
+
+    # Setup smart contracts
+    cd $HOME
+    rm -rf vana-dlp-smart-contracts
+    git clone https://github.com/Josephtran102/vana-dlp-smart-contracts
+    cd "$HOME/vana-dlp-smart-contracts"
+    npm install -g yarn
+    yarn --version
+    yarn install
+    cp .env.example .env
+    
+    # Update .env file with stored values
+    sed -i "s/^DEPLOYER_PRIVATE_KEY=0xef.*/DEPLOYER_PRIVATE_KEY=${VANA_COLDKEY_PRIVATE_KEY}/" .env
+    sed -i "s/^OWNER_ADDRESS=0x7B.*/OWNER_ADDRESS=${VANA_COLDKEY_ADDRESS}/" .env
+    sed -i "s/^DLP_NAME=J.*/DLP_NAME=${VANA_DLP_NAME}/" .env
+    sed -i "s/^DLP_TOKEN_NAME=J.*/DLP_TOKEN_NAME=${VANA_DLP_TOKEN_NAME}/" .env
+    sed -i "s/^DLP_TOKEN_SYMBOL=J.*/DLP_TOKEN_SYMBOL=${VANA_DLP_TOKEN_SYMBOL}/" .env
+    
+    npx hardhat deploy --network moksha --tags DLPDeploy
 }
 
 verifyF() {
