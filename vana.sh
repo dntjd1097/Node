@@ -7,8 +7,6 @@ install_dependencies() {
 	sudo apt install python3.11 python3.11-venv python3.11-dev -y
 	python3.11 --version
 	curl -sSL https://install.python-poetry.org | python3 -
-	echo 'export PATH="$HOME/.local/bin:$PATH"' >> $HOME/.bash_profile
-	source $HOME/.bash_profile
 	poetry --version
 	echo 'export PATH="$HOME/.local/bin:$PATH"' >> $HOME/.bashrc
 	source $HOME/.bashrc
@@ -17,10 +15,6 @@ install_dependencies() {
 	
 	
 	curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.0/install.sh | bash
-	# NVM 설정을 .bash_profile에 추가
-	echo 'export NVM_DIR="$HOME/.nvm"' >> $HOME/.bash_profile
-	echo '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm' >> $HOME/.bash_profile
-	echo '[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion' >> $HOME/.bash_profile
 
 	# NVM 설정을 .bashrc에도 추가
 	echo 'export NVM_DIR="$HOME/.nvm"' >> $HOME/.bashrc
@@ -28,7 +22,6 @@ install_dependencies() {
 	echo '[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion' >> $HOME/.bashrc
 
 	# 설정 파일을 적용 (로그인 쉘)
-	source $HOME/.bash_profile
 	source $HOME/.bashrc
 
 	nvm install --lts
@@ -37,24 +30,61 @@ install_dependencies() {
     echo "Dependencies installed."
 }
 set_env(){
-	source $HOME/.bash_profile
 	source $HOME/.bashrc
 }
 
+create_wallet_config() {
+    # 기본값 설정
+    WALLET_NAME=${VANA_WALLET_NAME:-"default"}
+    HOTKEY_NAME=${VANA_HOTKEY_NAME:-"default"}
+    WALLET_PASSWORD=${VANA_WALLET_PASSWORD:-"your_default_password"}
+    # keygen.sh를 위한 추가 기본값
+    VALIDATOR_NAME=${VANA_VALIDATOR_NAME:-"Vana DLP Validator"}
+    VALIDATOR_EMAIL=${VANA_VALIDATOR_EMAIL:-"validator@example.com"}
+    VALIDATOR_KEY_EXPIRY=${VANA_KEY_EXPIRY:-"0"}
+    
+    # .walletaccount 파일에 저장
+    if [ ! -f ~/.walletaccount ]; then
+        cat > ~/.walletaccount << EOL
+export VANA_WALLET_NAME="${WALLET_NAME}"
+export VANA_HOTKEY_NAME="${HOTKEY_NAME}"
+export VANA_WALLET_PASSWORD="${WALLET_PASSWORD}"
+export VANA_VALIDATOR_NAME="${VALIDATOR_NAME}"
+export VANA_VALIDATOR_EMAIL="${VALIDATOR_EMAIL}"
+export VANA_KEY_EXPIRY="${VALIDATOR_KEY_EXPIRY}"
+EOL
+        if ! grep -q "source ~/.walletaccount" ~/.profile; then
+            echo 'source ~/.walletaccount' >> ~/.profile
+        fi
+        source ~/.walletaccount
+    fi
+}
 
 download_and_setup() {
-	cd $HOME
+    cd $HOME
     apt install jq -y
-	apt install git -y
-	apt install python3-pip -y
-	install_dependencies
-	git clone https://github.com/vana-com/vana-dlp-chatgpt.git
+    apt install git -y
+    apt install python3-pip -y
+    install_dependencies
+    git clone https://github.com/vana-com/vana-dlp-chatgpt.git
     TARGET_DIR="$HOME/vana-dlp-chatgpt"
     cd "$TARGET_DIR"
-	poetry install
-	pip install vana -y
-	./vanacli wallet create --wallet.name default --wallet.hotkey default
+    poetry install
+    pip install vana -y
+    
+    create_wallet_config
+    
+    # 자동으로 입력 제공
+    expect << EOF
+    spawn ./vanacli wallet create --wallet.name $VANA_WALLET_NAME --wallet.hotkey $VANA_HOTKEY_NAME
+    expect "Specify password for key encryption:"
+    send "$VANA_WALLET_PASSWORD\r"
+	expect "Retype your password:"
+	send "$VANA_WALLET_PASSWORD\r"
+    expect eof
+EOF
 }
+
 
 export_private_key() {
 	set_env
@@ -65,7 +95,19 @@ export_private_key() {
 setup_dlp_smart_contracts(){
 	set_env
     cd "$HOME/vana-dlp-chatgpt"
-	./keygen.sh
+	
+	# expect를 사용하여 keygen.sh 실행 시 환경변수에서 값을 가져와 사용
+	expect << EOF
+    spawn ./keygen.sh
+    expect "Enter your name"
+    send "${VANA_VALIDATOR_NAME}\r"
+    expect "Enter your email"
+    send "${VANA_VALIDATOR_EMAIL}\r"
+    expect "Enter key expiration in days"
+    send "${VANA_KEY_EXPIRY}\r"
+    expect eof
+EOF
+	
 	cd $HOME
 	rm -rf vana-dlp-smart-contracts
 	git clone https://github.com/Josephtran102/vana-dlp-smart-contracts
