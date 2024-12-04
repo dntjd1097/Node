@@ -561,7 +561,7 @@ DLP_TOKEN_MOKSHA_CONTRACT=${VANA_DLP_TOKEN_MOKSHA_CONTRACT}
 PRIVATE_FILE_ENCRYPTION_PUBLIC_KEY_BASE64="${public_key}"
 EOF
     
-    # Register and approve validator using expect
+    # Register validator using expect
     expect << EOF
     spawn ./vanacli dlp register_validator --stake_amount 10
     expect "Enter wallet name"
@@ -572,13 +572,13 @@ EOF
     send "${VANA_WALLET_PASSWORD}\r"
     expect eof
 EOF
-
-    # Get hot key address from wallet info
-    HOT_KEY_ADDRESS=$(./vanacli wallet info --wallet.name ${VANA_WALLET_NAME} | grep -A 1 "Hotkey" | grep "SS58:" | awk '{print $2}')
+    
+    # Use VANA_HOTKEY_ADDRESS from .walletaccount
+    echo "Using hotkey address: ${VANA_HOTKEY_ADDRESS}"
     
     # Approve validator using expect
     expect << EOF
-    spawn ./vanacli dlp approve_validator --validator_address=${HOT_KEY_ADDRESS}
+    spawn ./vanacli dlp approve_validator --validator_address=${VANA_HOTKEY_ADDRESS}
     expect "Enter wallet name"
     send "${VANA_WALLET_NAME}\r"
     expect "Enter password to unlock key:"
