@@ -98,15 +98,29 @@ download_and_setup() {
     if [ ! -z "$VANA_COLDKEY_MNEMONIC" ] && [ ! -z "$VANA_HOTKEY_MNEMONIC" ]; then
         echo "Found existing mnemonics, regenerating keys..."
         
+        # Clean up mnemonics (remove extra spaces and special characters)
+        VANA_COLDKEY_MNEMONIC=$(echo "$VANA_COLDKEY_MNEMONIC" | tr -d '"' | xargs)
+        VANA_HOTKEY_MNEMONIC=$(echo "$VANA_HOTKEY_MNEMONIC" | tr -d '"' | xargs)
+        
+        # Debug output
+        echo "Cleaned Coldkey Mnemonic: $VANA_COLDKEY_MNEMONIC"
+        echo "Cleaned Hotkey Mnemonic: $VANA_HOTKEY_MNEMONIC"
+        
         # Remove existing wallet directory
         rm -rf "$HOME/.vana/wallets/default"
         
-        # Regenerate coldkey
+        # Create wallet directory
+        mkdir -p "$HOME/.vana/wallets/default/hotkeys"
+        
+        # Regenerate coldkey with cleaned mnemonic
+        COLDKEY_CMD="./vanacli w regen_coldkey --mnemonic \"$VANA_COLDKEY_MNEMONIC\""
+        echo "Executing: $COLDKEY_CMD"
+        
         expect << EOF
-        spawn ./vanacli w regen_coldkey --mnemonic "$VANA_COLDKEY_MNEMONIC"
+        set timeout -1
+        spawn $COLDKEY_CMD
         expect "Enter wallet name"
         send "default\r"
-        expect "Your coldkey mnemonic phrase:"
         expect "Specify password for key encryption:"
         send "$VANA_WALLET_PASSWORD\r"
         expect "Retype your password:"
@@ -114,18 +128,37 @@ download_and_setup() {
         expect eof
 EOF
         
-        # Regenerate hotkey
+        # Check if coldkey generation was successful
+        if [ $? -eq 0 ]; then
+            echo "Coldkey regenerated successfully"
+        else
+            echo "Error regenerating coldkey"
+            return 1
+        fi
+        
+        # Regenerate hotkey with cleaned mnemonic
+        HOTKEY_CMD="./vanacli w regen_hotkey --mnemonic \"$VANA_HOTKEY_MNEMONIC\""
+        echo "Executing: $HOTKEY_CMD"
+        
         expect << EOF
-        spawn ./vanacli w regen_hotkey --mnemonic "$VANA_HOTKEY_MNEMONIC"
+        set timeout -1
+        spawn $HOTKEY_CMD
         expect "Enter wallet name"
         send "default\r"
         expect "Enter hotkey name"
         send "default\r"
-        expect "Your hotkey mnemonic phrase:"
         expect eof
 EOF
-        echo "Keys regenerated successfully"
         
+        # Check if hotkey generation was successful
+        if [ $? -eq 0 ]; then
+            echo "Hotkey regenerated successfully"
+        else
+            echo "Error regenerating hotkey"
+            return 1
+        fi
+        
+        echo "Keys regenerated successfully"
     else
         echo "No existing mnemonics found, creating new wallet..."
         # Create new wallet
@@ -752,7 +785,7 @@ EOL
 }
 
 main_menu() {
-	apt get install -y expect
+	sudo apt-get install -y expect
     while true; do
         echo "========== VANA VALIDATOR MENU =========="
         echo "1. Install"
