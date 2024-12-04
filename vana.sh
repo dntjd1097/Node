@@ -81,32 +81,46 @@ download_and_setup() {
     VANA_WALLET_NAME="default"
     VANA_HOTKEY_NAME="default"
     
-    # 비밀번호 입력 받기
-    echo -n "Enter wallet password: "
-    read -s VANA_WALLET_PASSWORD
-    echo  # 줄바꿈을 위해
+    # 기존 .walletaccount 파일에서 설정 로드
+    source ~/.walletaccount 2>/dev/null || true
     
-    # .walletaccount 파일에 저장
-    cat > ~/.walletaccount << EOL
+    # password가 없거나 비어있는 경우에만 입력 받기
+    if [ -z "$VANA_WALLET_PASSWORD" ]; then
+        echo -n "Enter wallet password: "
+        read -s VANA_WALLET_PASSWORD
+        echo  # 줄바꿈을 위해
+        
+        # password만 업데이트
+        if [ -f ~/.walletaccount ]; then
+            # password 라인만 추가/수정
+            sed -i "/VANA_WALLET_PASSWORD/d" ~/.walletaccount
+            echo "export VANA_WALLET_PASSWORD=\"${VANA_WALLET_PASSWORD}\"" >> ~/.walletaccount
+        else
+            # 파일이 없는 경우 새로 생성
+            cat > ~/.walletaccount << EOL
 export VANA_WALLET_NAME="${VANA_WALLET_NAME}"
 export VANA_HOTKEY_NAME="${VANA_HOTKEY_NAME}"
 export VANA_WALLET_PASSWORD="${VANA_WALLET_PASSWORD}"
 EOL
-    
-    if ! grep -q "source ~/.walletaccount" ~/.profile; then
-        echo 'source ~/.walletaccount' >> ~/.profile
-    fi
-    source ~/.walletaccount
-    
-    # wallet 생성
-    expect << EOF
-    spawn ./vanacli wallet create --wallet.name $VANA_WALLET_NAME --wallet.hotkey $VANA_HOTKEY_NAME
-    expect "Specify password for key encryption:"
-    send "$VANA_WALLET_PASSWORD\r"
-    expect "Retype your password:"
-    send "$VANA_WALLET_PASSWORD\r"
-    expect eof
+        fi
+        
+        if ! grep -q "source ~/.walletaccount" ~/.profile; then
+            echo 'source ~/.walletaccount' >> ~/.profile
+        fi
+        source ~/.walletaccount
+        
+        # wallet 생성
+        expect << EOF
+        spawn ./vanacli wallet create --wallet.name $VANA_WALLET_NAME --wallet.hotkey $VANA_HOTKEY_NAME
+        expect "Specify password for key encryption:"
+        send "$VANA_WALLET_PASSWORD\r"
+        expect "Retype your password:"
+        send "$VANA_WALLET_PASSWORD\r"
+        expect eof
 EOF
+    else
+        echo "Wallet password already exists. Skipping password setup."
+    fi
 }
 
 
