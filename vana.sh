@@ -502,67 +502,73 @@ verifyF() {
 
 
 
-run(){
+run() {
     set_env
     cd "$HOME/vana-dlp-chatgpt"
-    public_key=$(cat /root/vana-dlp-chatgpt/public_key_base64.asc)
     
-    # Check if environment variables exist, if not prompt for input
-    TOKEN_CONTRACT=${VANA_TOKEN_CONTRACT:-$(read -p "DLP_TOKEN_MOKSHA_CONTRACT: " token && echo $token)}
-    POOL_CONTRACT=${VANA_POOL_CONTRACT:-$(read -p "DLP_MOKSHA_CONTRACT: " pool && echo $pool)}
+    # Load environment variables from .walletaccount
+    source ~/.walletaccount 2>/dev/null || true
     
-    # API_KEY 입력 받기
+    # Check if contract addresses exist
+    if [ -z "$VANA_DLP_TOKEN_MOKSHA_CONTRACT" ] || [ -z "$VANA_DLP_MOKSHA_CONTRACT" ]; then
+        echo "Contract addresses not found in .walletaccount"
+        echo "Please run option 3 first to deploy contracts, or enter addresses manually"
+        read -p "Would you like to enter addresses manually? (y/n): " manual_input
+        if [[ $manual_input == "y" ]]; then
+            read -p "DLP_TOKEN_MOKSHA_CONTRACT: " VANA_DLP_TOKEN_MOKSHA_CONTRACT
+            read -p "DLP_MOKSHA_CONTRACT: " VANA_DLP_MOKSHA_CONTRACT
+            
+            # Save to .walletaccount
+            if [ -f ~/.walletaccount ]; then
+                sed -i '/VANA_DLP_TOKEN_MOKSHA_CONTRACT/d' ~/.walletaccount
+                sed -i '/VANA_DLP_MOKSHA_CONTRACT/d' ~/.walletaccount
+            fi
+            echo "export VANA_DLP_TOKEN_MOKSHA_CONTRACT=\"${VANA_DLP_TOKEN_MOKSHA_CONTRACT}\"" >> ~/.walletaccount
+            echo "export VANA_DLP_MOKSHA_CONTRACT=\"${VANA_DLP_MOKSHA_CONTRACT}\"" >> ~/.walletaccount
+            source ~/.walletaccount
+        else
+            echo "Run cancelled"
+            return 1
+        fi
+    fi
+    
+    # Check if OpenAI API key exists
     if [ -z "$OPENAI_API_KEY" ]; then
-        read -p "Enter OpenAI API Key: " API_KEY
-    else
-        API_KEY=$OPENAI_API_KEY
-    fi
-    
-    # Save to ~/.walletaccount
-    if [ -f ~/.walletaccount ]; then
-        # Remove existing entries if they exist
-        sed -i '/VANA_TOKEN_CONTRACT/d' ~/.walletaccount
-        sed -i '/VANA_POOL_CONTRACT/d' ~/.walletaccount
-        sed -i '/OPENAI_API_KEY/d' ~/.walletaccount
+        read -p "Enter OpenAI API Key: " OPENAI_API_KEY
         
-        # Add new entries
-        echo "export VANA_TOKEN_CONTRACT=\"${TOKEN_CONTRACT}\"" >> ~/.walletaccount
-        echo "export VANA_POOL_CONTRACT=\"${POOL_CONTRACT}\"" >> ~/.walletaccount
-        echo "export OPENAI_API_KEY=\"${API_KEY}\"" >> ~/.walletaccount
-    else
-        cat > ~/.walletaccount << EOL
-export VANA_TOKEN_CONTRACT="${TOKEN_CONTRACT}"
-export VANA_POOL_CONTRACT="${POOL_CONTRACT}"
-export OPENAI_API_KEY="${API_KEY}"
-EOL
+        # Save to .walletaccount
+        if [ -f ~/.walletaccount ]; then
+            sed -i '/OPENAI_API_KEY/d' ~/.walletaccount
+        fi
+        echo "export OPENAI_API_KEY=\"${OPENAI_API_KEY}\"" >> ~/.walletaccount
+        source ~/.walletaccount
     fi
-
-    if ! grep -q "source ~/.walletaccount" ~/.profile; then
-        echo 'source ~/.walletaccount' >> ~/.profile
-    fi
-    source ~/.walletaccount
     
+    # Create .env file with necessary variables
     cat <<EOF > .env
 # The network to use, currently Vana Moksha testnet
 OD_CHAIN_NETWORK=moksha
 OD_CHAIN_NETWORK_ENDPOINT=https://rpc.moksha.vana.org
 
 # Optional: OpenAI API key for additional data quality check
-OPENAI_API_KEY="${API_KEY}"
+OPENAI_API_KEY="${OPENAI_API_KEY}"
 
 # Optional: Your own DLP smart contract address once deployed to the network, useful for local testing
-DLP_MOKSHA_CONTRACT=${POOL_CONTRACT}
+DLP_MOKSHA_CONTRACT=${VANA_DLP_MOKSHA_CONTRACT}
 
 # Optional: Your own DLP token contract address once deployed to the network, useful for local testing
-DLP_TOKEN_MOKSHA_CONTRACT=${TOKEN_CONTRACT}
+DLP_TOKEN_MOKSHA_CONTRACT=${VANA_DLP_TOKEN_MOKSHA_CONTRACT}
 
 # The private key for the DLP, follow "Generate validator encryption keys" section in the README
 PRIVATE_FILE_ENCRYPTION_PUBLIC_KEY_BASE64="${public_key}"
 EOF
     
+    # Register and approve validator
     ./vanacli dlp register_validator --stake_amount 10
     read -p "Hot key Address: " hot_address
     ./vanacli dlp approve_validator --validator_address=${hot_address}
+    
+    # Run the validator node
     poetry run python -m chatgpt.nodes.validator
 }
 
