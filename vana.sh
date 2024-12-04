@@ -149,7 +149,7 @@ EOF
         VANA_HOTKEY_MNEMONIC=$(grep -A 2 "Your hotkey mnemonic phrase:" "$TEMP_MNEMONIC" | tail -n 1 | sed 's/│//g' | sed -r "s/\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g" | xargs)
         
         # Save mnemonics
-        cat > ~/.mnemonic << EOL
+        cat > ~/.walletaccount << EOL
 VANA_COLDKEY_MNEMONIC="$VANA_COLDKEY_MNEMONIC"
 VANA_HOTKEY_MNEMONIC="$VANA_HOTKEY_MNEMONIC"
 EOL
