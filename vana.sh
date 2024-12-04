@@ -76,15 +76,32 @@ setup_dlp_smart_contracts(){
 	cp .env.example .env
 	cd "$HOME/vana-dlp-smart-contracts"
 	echo "+++++++++++++++++"
-	read -p "enter"
-	read -p "wallet address (0x...): " ip_address
-    read -p "wallet private key (0x...): " private_key
-    read -p "DLP_NAME: " DLP_NAME
-    read -p "DLP_TOKEN_NAME: " DLP_TOKEN_NAME
-	read -p "DLP_TOKEN_SYMBOL: " DLP_TOKEN_SYMBOL
 	
-	sed -i "s/^DEPLOYER_PRIVATE_KEY=0xef.*/DEPLOYER_PRIVATE_KEY=${private_key}/" .env
-	sed -i "s/^OWNER_ADDRESS=0x7B.*/OWNER_ADDRESS=${ip_address}/" .env
+	# Check if environment variables exist, if not prompt for input
+	WALLET_ADDRESS=${VANA_WALLET_ADDRESS:-$(read -p "wallet address (0x...): " addr && echo $addr)}
+	PRIVATE_KEY=${VANA_PRIVATE_KEY:-$(read -p "wallet private key (0x...): " key && echo $key)}
+	DLP_NAME=${VANA_DLP_NAME:-$(read -p "DLP_NAME: " name && echo $name)}
+	DLP_TOKEN_NAME=${VANA_DLP_TOKEN_NAME:-$(read -p "DLP_TOKEN_NAME: " token_name && echo $token_name)}
+	DLP_TOKEN_SYMBOL=${VANA_DLP_TOKEN_SYMBOL:-$(read -p "DLP_TOKEN_SYMBOL: " symbol && echo $symbol)}
+	
+	# Save to ~/.walletaccount if not already saved
+	if [ ! -f ~/.walletaccount ]; then
+		cat > ~/.walletaccount << EOL
+export VANA_WALLET_ADDRESS="${WALLET_ADDRESS}"
+export VANA_PRIVATE_KEY="${PRIVATE_KEY}"
+export VANA_DLP_NAME="${DLP_NAME}"
+export VANA_DLP_TOKEN_NAME="${DLP_TOKEN_NAME}"
+export VANA_DLP_TOKEN_SYMBOL="${DLP_TOKEN_SYMBOL}"
+EOL
+		# Add source line to .profile if not already there
+		if ! grep -q "source ~/.walletaccount" ~/.profile; then
+			echo 'source ~/.walletaccount' >> ~/.profile
+		fi
+		source ~/.walletaccount
+	fi
+	
+	sed -i "s/^DEPLOYER_PRIVATE_KEY=0xef.*/DEPLOYER_PRIVATE_KEY=${PRIVATE_KEY}/" .env
+	sed -i "s/^OWNER_ADDRESS=0x7B.*/OWNER_ADDRESS=${WALLET_ADDRESS}/" .env
 	sed -i "s/^DLP_NAME=J.*/DLP_NAME=${DLP_NAME}/" .env
 	sed -i "s/^DLP_TOKEN_NAME=J.*/DLP_TOKEN_NAME=${DLP_TOKEN_NAME}/" .env
 	sed -i "s/^DLP_TOKEN_SYMBOL=J.*/DLP_TOKEN_SYMBOL=${DLP_TOKEN_SYMBOL}/" .env
@@ -107,9 +124,24 @@ run(){
 	set_env
 	cd "$HOME/vana-dlp-chatgpt"
 	public_key=$(cat /root/vana-dlp-chatgpt/public_key_base64.asc)
-	read -p "DLP_TOKEN_MOKSHA_CONTRACT: " token_contract
-    read -p "DLP_MOKSHA_CONTRACT: " pool_contract
-	read -p "OPENAI_API_KEY: " api
+	
+	# Check if environment variables exist, if not prompt for input
+	TOKEN_CONTRACT=${VANA_TOKEN_CONTRACT:-$(read -p "DLP_TOKEN_MOKSHA_CONTRACT: " token && echo $token)}
+	POOL_CONTRACT=${VANA_POOL_CONTRACT:-$(read -p "DLP_MOKSHA_CONTRACT: " pool && echo $pool)}
+	API_KEY=${OPENAI_API_KEY:-$(read -p "OPENAI_API_KEY: " api && echo $api)}
+	
+	# Save to ~/.walletaccount if not already saved
+	if [ ! -f ~/.walletaccount ]; then
+		cat > ~/.walletaccount << EOL
+export VANA_TOKEN_CONTRACT="${TOKEN_CONTRACT}"
+export VANA_POOL_CONTRACT="${POOL_CONTRACT}"
+export OPENAI_API_KEY="${API_KEY}"
+EOL
+		if ! grep -q "source ~/.walletaccount" ~/.profile; then
+			echo 'source ~/.walletaccount' >> ~/.profile
+		fi
+		source ~/.walletaccount
+	fi
 	
 	cat <<EOF > .env
 # The network to use, currently Vana Moksha testnet
@@ -158,7 +190,7 @@ EOF
 
 sudo systemctl daemon-reload && \
 sudo systemctl enable vana.service && \
-sudo systemctl start vana.service && \
+sudo systemctl restart vana.service && \
 sudo systemctl status vana.service
 }
 
