@@ -108,8 +108,13 @@ EOL
             echo 'source ~/.walletaccount' >> ~/.profile
         fi
         source ~/.walletaccount
-        
-        # wallet 생성
+    else
+        echo "Wallet password already exists. Skipping password setup."
+    fi
+    
+    # .vana/wallets/{WALLET_NAME} 디렉토리가 없는 경우에만 wallet 생성
+    WALLET_DIR="$HOME/.vana/wallets/$VANA_WALLET_NAME"
+    if [ ! -d "$WALLET_DIR" ]; then
         expect << EOF
         spawn ./vanacli wallet create --wallet.name $VANA_WALLET_NAME --wallet.hotkey $VANA_HOTKEY_NAME
         expect "Specify password for key encryption:"
@@ -119,7 +124,7 @@ EOL
         expect eof
 EOF
     else
-        echo "Wallet password already exists. Skipping password setup."
+        echo "Wallet directory already exists. Skipping wallet creation."
     fi
 }
 
