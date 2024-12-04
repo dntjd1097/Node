@@ -154,9 +154,65 @@ EOL
 
 
 export_private_key() {
-	set_env
+    set_env
     cd "$HOME/vana-dlp-chatgpt"
-    ./vanacli wallet export_private_key
+    
+    # Load wallet configuration
+    source ~/.walletaccount 2>/dev/null || true
+    
+    # Use default values if not set
+    WALLET_NAME=${VANA_WALLET_NAME:-"default"}
+    HOTKEY_NAME=${VANA_HOTKEY_NAME:-"default"}
+    WALLET_PASSWORD=${VANA_WALLET_PASSWORD}
+    
+    echo "Exporting keys for wallet: $WALLET_NAME"
+    
+    # Export coldkey using expect
+    echo "Exporting coldkey..."
+    TEMP_COLDKEY=$(mktemp)
+    expect << EOF | tee "$TEMP_COLDKEY"
+    spawn ./vanacli wallet export_private_key --wallet.name "$WALLET_NAME" --key.type coldkey
+    expect "Enter key type"
+    send "coldkey\r"
+    expect "Do you understand the risks?"
+    send "yes\r"
+    expect "Enter your coldkey password:"
+    send "$WALLET_PASSWORD\r"
+    expect eof
+EOF
+    COLDKEY_PRIVATE_KEY=$(grep -oP '0x[a-fA-F0-9]{64}' "$TEMP_COLDKEY")
+    rm "$TEMP_COLDKEY"
+
+    # Export hotkey using expect
+    echo "Exporting hotkey..."
+    TEMP_HOTKEY=$(mktemp)
+    expect << EOF | tee "$TEMP_HOTKEY"
+    spawn ./vanacli wallet export_private_key --wallet.name "$HOTKEY_NAME" --key.type hotkey
+    expect "Enter key type"
+    send "hotkey\r"
+    expect "Do you understand the risks?"
+    send "yes\r"
+    expect "Enter your hotkey password:"
+    send "$WALLET_PASSWORD\r"
+    expect eof
+EOF
+    HOTKEY_PRIVATE_KEY=$(grep -oP '0x[a-fA-F0-9]{64}' "$TEMP_HOTKEY")
+    rm "$TEMP_HOTKEY"
+    
+    # Save private keys to .walletaccount if they were successfully exported
+    if [ ! -z "$COLDKEY_PRIVATE_KEY" ] && [ ! -z "$HOTKEY_PRIVATE_KEY" ]; then
+        # Remove existing private key entries if they exist
+        sed -i '/VANA_COLDKEY_PRIVATE_KEY/d' ~/.walletaccount
+        sed -i '/VANA_HOTKEY_PRIVATE_KEY/d' ~/.walletaccount
+        
+        # Add new private keys
+        echo "export VANA_COLDKEY_PRIVATE_KEY=\"${COLDKEY_PRIVATE_KEY}\"" >> ~/.walletaccount
+        echo "export VANA_HOTKEY_PRIVATE_KEY=\"${HOTKEY_PRIVATE_KEY}\"" >> ~/.walletaccount
+        
+        echo "Private keys have been saved to ~/.walletaccount"
+    else
+        echo "Failed to export one or both private keys"
+    fi
 }
 
 setup_dlp_smart_contracts(){
