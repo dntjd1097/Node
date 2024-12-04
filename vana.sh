@@ -509,6 +509,13 @@ run() {
     # Load environment variables from .walletaccount
     source ~/.walletaccount 2>/dev/null || true
     
+    # Check if wallet configuration exists
+    if [ -z "$VANA_WALLET_NAME" ] || [ -z "$VANA_HOTKEY_NAME" ] || [ -z "$VANA_WALLET_PASSWORD" ]; then
+        echo "Wallet configuration not found in .walletaccount"
+        echo "Please run option 1 first to set up wallet configuration"
+        return 1
+    fi
+    
     # Check if contract addresses exist
     if [ -z "$VANA_DLP_TOKEN_MOKSHA_CONTRACT" ] || [ -z "$VANA_DLP_MOKSHA_CONTRACT" ]; then
         echo "Contract addresses not found in .walletaccount"
@@ -546,34 +553,45 @@ run() {
     
     # Create .env file with necessary variables
     cat <<EOF > .env
-# The network to use, currently Vana Moksha testnet
 OD_CHAIN_NETWORK=moksha
 OD_CHAIN_NETWORK_ENDPOINT=https://rpc.moksha.vana.org
-
-# Optional: OpenAI API key for additional data quality check
 OPENAI_API_KEY="${OPENAI_API_KEY}"
-
-# Optional: Your own DLP smart contract address once deployed to the network, useful for local testing
 DLP_MOKSHA_CONTRACT=${VANA_DLP_MOKSHA_CONTRACT}
-
-# Optional: Your own DLP token contract address once deployed to the network, useful for local testing
 DLP_TOKEN_MOKSHA_CONTRACT=${VANA_DLP_TOKEN_MOKSHA_CONTRACT}
-
-# The private key for the DLP, follow "Generate validator encryption keys" section in the README
 PRIVATE_FILE_ENCRYPTION_PUBLIC_KEY_BASE64="${public_key}"
 EOF
     
-    # Register and approve validator
-    ./vanacli dlp register_validator --stake_amount 10
-    read -p "Hot key Address: " hot_address
-    ./vanacli dlp approve_validator --validator_address=${hot_address}
+    # Register and approve validator using expect
+    expect << EOF
+    spawn ./vanacli dlp register_validator --stake_amount 10
+    expect "Enter wallet name"
+    send "${VANA_WALLET_NAME}\r"
+    expect "Enter hotkey name"
+    send "${VANA_HOTKEY_NAME}\r"
+    expect "Enter password to unlock key:"
+    send "${VANA_WALLET_PASSWORD}\r"
+    expect eof
+EOF
+
+    # Get hot key address from wallet info
+    HOT_KEY_ADDRESS=$(./vanacli wallet info --wallet.name ${VANA_WALLET_NAME} | grep -A 1 "Hotkey" | grep "SS58:" | awk '{print $2}')
+    
+    # Approve validator using expect
+    expect << EOF
+    spawn ./vanacli dlp approve_validator --validator_address=${HOT_KEY_ADDRESS}
+    expect "Enter wallet name"
+    send "${VANA_WALLET_NAME}\r"
+    expect "Enter password to unlock key:"
+    send "${VANA_WALLET_PASSWORD}\r"
+    expect eof
+EOF
     
     # Run the validator node
     poetry run python -m chatgpt.nodes.validator
 }
 
 service(){
-		cat <<EOF > /etc/systemd/system/vana.service
+			cat <<EOF > /etc/systemd/system/vana.service
 [Unit]
 Description=Vana Validator Service
 After=network.target
@@ -650,3 +668,4 @@ main_menu() {
 
 echo "Preparing to launch main menu..."
 main_menu
+
