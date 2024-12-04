@@ -180,7 +180,7 @@ export_private_key() {
     send "$WALLET_PASSWORD\r"
     expect eof
 EOF
-    COLDKEY_PRIVATE_KEY=$(grep -oP '0x[a-fA-F0-9]{64}' "$TEMP_COLDKEY")
+    COLDKEY_PRIVATE_KEY=$(grep -oP '0x[a-fA-F0-9]{64}' "$TEMP_COLDKEY" | head -n 1)
     rm "$TEMP_COLDKEY"
 
     # Export hotkey using expect
@@ -196,7 +196,7 @@ EOF
     send "$WALLET_PASSWORD\r"
     expect eof
 EOF
-    HOTKEY_PRIVATE_KEY=$(grep -oP '0x[a-fA-F0-9]{64}' "$TEMP_HOTKEY")
+    HOTKEY_PRIVATE_KEY=$(grep -oP '0x[a-fA-F0-9]{64}' "$TEMP_HOTKEY" | head -n 1)
     rm "$TEMP_HOTKEY"
     
     # Save private keys to .walletaccount if they were successfully exported
