@@ -86,81 +86,93 @@ download_and_setup() {
     poetry install
     pip install vana -y
     
-    create_wallet_config
+    # Load existing configuration
+    source ~/.walletaccount 2>/dev/null || true
+    source ~/.mnemonic 2>/dev/null || true
     
-    # wallet 설정
+    # Set default wallet names
     VANA_WALLET_NAME="default"
     VANA_HOTKEY_NAME="default"
     
-    # 기존 .walletaccount 파일에서 설정 로드
-    source ~/.walletaccount 2>/dev/null || true
-    
-    # password가 없거나 비어있는 경우에만 입력 받기
-    if [ -z "$VANA_WALLET_PASSWORD" ]; then
-        echo -n "Enter wallet password: "
-        read -s VANA_WALLET_PASSWORD
-        echo  # 줄바꿈을 위해
+    # Check if we have existing mnemonics
+    if [ ! -z "$VANA_COLDKEY_MNEMONIC" ] && [ ! -z "$VANA_HOTKEY_MNEMONIC" ]; then
+        echo "Found existing mnemonics, regenerating keys..."
         
-        # password만 업데이트
-        if [ -f ~/.walletaccount ]; then
-            # password 라인만 추가/수정
-            sed -i "/VANA_WALLET_PASSWORD/d" ~/.walletaccount
-            echo "export VANA_WALLET_PASSWORD=\"${VANA_WALLET_PASSWORD}\"" >> ~/.walletaccount
-        else
-            # 파일이 없는 경우 새로 생성
-            cat > ~/.walletaccount << EOL
-export VANA_WALLET_NAME="${VANA_WALLET_NAME}"
-export VANA_HOTKEY_NAME="${VANA_HOTKEY_NAME}"
-export VANA_WALLET_PASSWORD="${VANA_WALLET_PASSWORD}"
-EOL
-        fi
+        # Remove existing wallet directory
+        rm -rf "$HOME/.vana/wallets/default"
         
-        if ! grep -q "source ~/.walletaccount" ~/.profile; then
-            echo 'source ~/.walletaccount' >> ~/.profile
-        fi
-        source ~/.walletaccount
+        # Regenerate coldkey
+        expect << EOF
+        spawn ./vanacli w regen_coldkey --mnemonic "$VANA_COLDKEY_MNEMONIC"
+        expect "Enter wallet name"
+        send "default\r"
+        expect "Specify password for key encryption:"
+        send "$VANA_WALLET_PASSWORD\r"
+        expect "Retype your password:"
+        send "$VANA_WALLET_PASSWORD\r"
+        expect eof
+EOF
+        
+        # Regenerate hotkey
+        expect << EOF
+        spawn ./vanacli w regen_hotkey --mnemonic "$VANA_HOTKEY_MNEMONIC"
+        expect "Enter wallet name"
+        send "default\r"
+        expect "Enter hotkey name"
+        send "default\r"
+        expect eof
+EOF
+        echo "Keys regenerated successfully"
+        
     else
-        echo "Wallet password already exists. Skipping password setup."
-    fi
-    
-    # .vana/wallets/{WALLET_NAME} 디렉토리가 없는 경우에만 wallet 생성
-    WALLET_DIR="$HOME/.vana/wallets/$VANA_WALLET_NAME"
-    if [ ! -d "$WALLET_DIR" ]; then
-        # 니모닉을 저장할 임시 파일
+        echo "No existing mnemonics found, creating new wallet..."
+        # Create new wallet
         TEMP_MNEMONIC=$(mktemp)
         
         expect << EOF | tee "$TEMP_MNEMONIC"
         spawn ./vanacli wallet create --wallet.name $VANA_WALLET_NAME --wallet.hotkey $VANA_HOTKEY_NAME
         expect "Your coldkey mnemonic phrase:"
         expect -re {│\s+([\w\s]+)\s+│}
-        set VANA_COLDKEY_MNEMONIC \$expect_out(1,string)
+        set coldkey_mnemonic \$expect_out(1,string)
         expect "Specify password for key encryption:"
         send "$VANA_WALLET_PASSWORD\r"
         expect "Retype your password:"
         send "$VANA_WALLET_PASSWORD\r"
         expect "Your hotkey mnemonic phrase:"
         expect -re {│\s+([\w\s]+)\s+│}
-        set VANA_HOTKEY_MNEMONIC \$expect_out(1,string)
+        set hotkey_mnemonic \$expect_out(1,string)
         expect eof
 EOF
         
-        # 니모닉 추출 및 저장 (ANSI 코드 제거)
+        # Extract and save mnemonics
         VANA_COLDKEY_MNEMONIC=$(grep -A 2 "Your coldkey mnemonic phrase:" "$TEMP_MNEMONIC" | tail -n 1 | sed 's/│//g' | sed -r "s/\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g" | xargs)
         VANA_HOTKEY_MNEMONIC=$(grep -A 2 "Your hotkey mnemonic phrase:" "$TEMP_MNEMONIC" | tail -n 1 | sed 's/│//g' | sed -r "s/\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g" | xargs)
         
-        # .mnemonic 파일에 저장
+        # Save mnemonics
         cat > ~/.mnemonic << EOL
 VANA_COLDKEY_MNEMONIC="$VANA_COLDKEY_MNEMONIC"
 VANA_HOTKEY_MNEMONIC="$VANA_HOTKEY_MNEMONIC"
 EOL
         
-        # 임시 파일 삭제
         rm "$TEMP_MNEMONIC"
-        
-        echo "Mnemonic phrases have been saved to ~/.mnemonic"
-    else
-        echo "Wallet directory already exists. Skipping wallet creation."
+        echo "New wallet created and mnemonics saved to ~/.mnemonic"
     fi
+    
+    # Update wallet configuration
+    if [ -f ~/.walletaccount ]; then
+        sed -i "/VANA_WALLET_NAME/d" ~/.walletaccount
+        sed -i "/VANA_HOTKEY_NAME/d" ~/.walletaccount
+        sed -i "/VANA_WALLET_PASSWORD/d" ~/.walletaccount
+    fi
+    
+    cat >> ~/.walletaccount << EOL
+export VANA_WALLET_NAME="default"
+export VANA_HOTKEY_NAME="default"
+export VANA_WALLET_PASSWORD="$VANA_WALLET_PASSWORD"
+EOL
+
+    source ~/.walletaccount
+    echo "Setup completed successfully"
 }
 
 
