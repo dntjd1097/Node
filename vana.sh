@@ -8,22 +8,24 @@ install_dependencies() {
 	python3.11 --version
 	curl -sSL https://install.python-poetry.org | python3 -
 	poetry --version
-	echo 'export PATH="$HOME/.local/bin:$PATH"' >> $HOME/.bashrc
+	
+	# PATH 설정이 없을 경우에만 추가
+	if ! grep -q 'export PATH="$HOME/.local/bin:$PATH"' $HOME/.bashrc; then
+		echo 'export PATH="$HOME/.local/bin:$PATH"' >> $HOME/.bashrc
+	fi
 	source $HOME/.bashrc
 	poetry --version
 	
-	
-	
 	curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.0/install.sh | bash
 
-	# NVM 설정을 .bashrc에도 추가
-	echo 'export NVM_DIR="$HOME/.nvm"' >> $HOME/.bashrc
-	echo '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm' >> $HOME/.bashrc
-	echo '[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion' >> $HOME/.bashrc
+	# NVM 설정이 없을 경우에만 추가
+	if ! grep -q 'export NVM_DIR="$HOME/.nvm"' $HOME/.bashrc; then
+		echo 'export NVM_DIR="$HOME/.nvm"' >> $HOME/.bashrc
+		echo '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm' >> $HOME/.bashrc
+		echo '[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion' >> $HOME/.bashrc
+	fi
 
-	# 설정 파일을 적용 (로그인 쉘)
 	source $HOME/.bashrc
-
 	nvm install --lts
 	node -v
 	npm -v
