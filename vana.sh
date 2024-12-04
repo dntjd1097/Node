@@ -133,9 +133,9 @@ EOL
         expect eof
 EOF
         
-        # 니모닉 추출 및 저장
-        COLDKEY_MNEMONIC=$(grep -A 2 "Your coldkey mnemonic phrase:" "$TEMP_MNEMONIC" | tail -n 1 | sed 's/│//g' | tr -d '[:space:]')
-        HOTKEY_MNEMONIC=$(grep -A 2 "Your hotkey mnemonic phrase:" "$TEMP_MNEMONIC" | tail -n 1 | sed 's/│//g' | tr -d '[:space:]')
+        # 니모닉 추출 및 저장 (ANSI 코드 제거)
+        COLDKEY_MNEMONIC=$(grep -A 2 "Your coldkey mnemonic phrase:" "$TEMP_MNEMONIC" | tail -n 1 | sed 's/│//g' | sed -r "s/\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g" | xargs)
+        HOTKEY_MNEMONIC=$(grep -A 2 "Your hotkey mnemonic phrase:" "$TEMP_MNEMONIC" | tail -n 1 | sed 's/│//g' | sed -r "s/\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g" | xargs)
         
         # .mnemonic 파일에 저장
         cat > ~/.mnemonic << EOL
