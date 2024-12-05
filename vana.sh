@@ -37,55 +37,43 @@ set_env(){
 }
 
 create_wallet_config() {
+    # 기존 값 로드
+    if [ -f ~/.vanawallet ]; then
+        source ~/.vanawallet
+    fi
+    
     # 기본값 설정
-    WALLET_NAME=${VANA_WALLET_NAME:-"default"}
-    HOTKEY_NAME=${VANA_HOTKEY_NAME:-"default"}
-    WALLET_PASSWORD=${VANA_WALLET_PASSWORD:-"your_default_password"}
+    VANA_WALLET_NAME=${VANA_WALLET_NAME:-"default"}
+    VANA_HOTKEY_NAME=${VANA_HOTKEY_NAME:-"default"}
+    VANA_WALLET_PASSWORD=${VANA_WALLET_PASSWORD:-"your_default_password"}
     
-    # VALIDATOR_NAME과 VALIDATOR_EMAIL을 처음 실행할 때 입력받기
+    # 입력 받기
     if [ -z "$VANA_VALIDATOR_NAME" ]; then
-        read -p "Enter Validator Name: " VALIDATOR_NAME
-    else
-        VALIDATOR_NAME=$VANA_VALIDATOR_NAME
+        read -p "Enter Validator Name: " VANA_VALIDATOR_NAME
     fi
-
-    if [ -z "$VANA_VALIDATOR_EMAIL" ]; then
-        read -p "Enter Validator Email: " VALIDATOR_EMAIL
-    else
-        VALIDATOR_EMAIL=$VANA_VALIDATOR_EMAIL
-    fi
-
-    VALIDATOR_KEY_EXPIRY=${VANA_KEY_EXPIRY:-"0"}
     
-    # .walletaccount 파일에 저장
-    if [ ! -f ~/.walletaccount ]; then
-        cat > ~/.walletaccount << EOL
-export VANA_WALLET_NAME="${WALLET_NAME}"
-export VANA_HOTKEY_NAME="${HOTKEY_NAME}"
-export VANA_WALLET_PASSWORD="${WALLET_PASSWORD}"
-export VANA_VALIDATOR_NAME="${VALIDATOR_NAME}"
-export VANA_VALIDATOR_EMAIL="${VALIDATOR_EMAIL}"
-export VANA_KEY_EXPIRY="${VALIDATOR_KEY_EXPIRY}"
-EOL
-        if ! grep -q "source ~/.walletaccount" ~/.profile; then
-            echo 'source ~/.walletaccount' >> ~/.profile
-        fi
-        source ~/.walletaccount
+    if [ -z "$VANA_VALIDATOR_EMAIL" ]; then
+        read -p "Enter Validator Email: " VANA_VALIDATOR_EMAIL
     fi
+    
+    VANA_KEY_EXPIRY=${VANA_KEY_EXPIRY:-"0"}
+    
+    # 설정 업데이트
+    update_vanawallet
 }
 
 download_and_setup() {
     # Load existing configuration first
-    if [ -f ~/.walletaccount ]; then
-        source ~/.walletaccount
+    if [ -f ~/.vanawallet ]; then
+        source ~/.vanawallet
     fi
     
     # Create temporary file for new configurations
     TEMP_CONFIG=$(mktemp)
     
     # Save existing configurations to temporary file
-    if [ -f ~/.walletaccount ]; then
-        cat ~/.walletaccount > "$TEMP_CONFIG"
+    if [ -f ~/.vanawallet ]; then
+        cat ~/.vanawallet > "$TEMP_CONFIG"
     fi
     
     cd $HOME
@@ -100,8 +88,7 @@ download_and_setup() {
     pip install vana -y
     
     # Load existing configuration
-    source ~/.walletaccount 2>/dev/null || true
-    source ~/.mnemonic 2>/dev/null || true
+    source ~/.vanawallet 2>/dev/null || true
     
     # Set default wallet names
     VANA_WALLET_NAME="default"
@@ -197,29 +184,29 @@ EOF
         VANA_HOTKEY_MNEMONIC=$(grep -A 2 "Your hotkey mnemonic phrase:" "$TEMP_MNEMONIC" | tail -n 1 | sed 's/│//g' | sed -r "s/\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g" | xargs)
         
         # Save mnemonics
-        cat > ~/.walletaccount << EOL
+        cat > ~/.vanawallet << EOL
 VANA_COLDKEY_MNEMONIC="$VANA_COLDKEY_MNEMONIC"
 VANA_HOTKEY_MNEMONIC="$VANA_HOTKEY_MNEMONIC"
 EOL
         
         rm "$TEMP_MNEMONIC"
-        echo "New wallet created and mnemonics saved to ~/.mnemonic"
+        echo "New wallet created and mnemonics saved to ~/.vanawallet"
     fi
     
     # Update wallet configuration
-    if [ -f ~/.walletaccount ]; then
-        sed -i "/VANA_WALLET_NAME/d" ~/.walletaccount
-        sed -i "/VANA_HOTKEY_NAME/d" ~/.walletaccount
-        sed -i "/VANA_WALLET_PASSWORD/d" ~/.walletaccount
+    if [ -f ~/.vanawallet ]; then
+        sed -i "/VANA_WALLET_NAME/d" ~/.vanawallet
+        sed -i "/VANA_HOTKEY_NAME/d" ~/.vanawallet
+        sed -i "/VANA_WALLET_PASSWORD/d" ~/.vanawallet
     fi
     
-    cat >> ~/.walletaccount << EOL
+    cat >> ~/.vanawallet << EOL
 export VANA_WALLET_NAME="default"
 export VANA_HOTKEY_NAME="default"
 export VANA_WALLET_PASSWORD="$VANA_WALLET_PASSWORD"
 EOL
 
-    source ~/.walletaccount
+    source ~/.vanawallet
     echo "Setup completed successfully"
 }
 
@@ -257,7 +244,7 @@ if len(sys.argv) > 1:
 EOL
     
     # Load wallet configuration
-    source ~/.walletaccount 2>/dev/null || true
+    source ~/.vanawallet 2>/dev/null || true
     
     # Use default values if not set
     WALLET_NAME=${VANA_WALLET_NAME:-"default"}
@@ -315,21 +302,21 @@ EOF
     # Clean up temporary Python script
     rm /tmp/generate_eth_address.py
     
-    # Save private keys and addresses to .walletaccount if they were successfully exported
+    # Save private keys and addresses to .vanawallet if they were successfully exported
     if [ ! -z "$COLDKEY_PRIVATE_KEY" ] && [ ! -z "$HOTKEY_PRIVATE_KEY" ]; then
         # Remove existing entries if they exist
-        sed -i '/VANA_COLDKEY_PRIVATE_KEY/d' ~/.walletaccount
-        sed -i '/VANA_HOTKEY_PRIVATE_KEY/d' ~/.walletaccount
-        sed -i '/VANA_COLDKEY_ADDRESS/d' ~/.walletaccount
-        sed -i '/VANA_HOTKEY_ADDRESS/d' ~/.walletaccount
+        sed -i '/VANA_COLDKEY_PRIVATE_KEY/d' ~/.vanawallet
+        sed -i '/VANA_HOTKEY_PRIVATE_KEY/d' ~/.vanawallet
+        sed -i '/VANA_COLDKEY_ADDRESS/d' ~/.vanawallet
+        sed -i '/VANA_HOTKEY_ADDRESS/d' ~/.vanawallet
         
         # Add new private keys and addresses
-        echo "export VANA_COLDKEY_PRIVATE_KEY=\"${COLDKEY_PRIVATE_KEY}\"" >> ~/.walletaccount
-        echo "export VANA_HOTKEY_PRIVATE_KEY=\"${HOTKEY_PRIVATE_KEY}\"" >> ~/.walletaccount
-        echo "export VANA_COLDKEY_ADDRESS=\"${COLDKEY_ADDRESS}\"" >> ~/.walletaccount
-        echo "export VANA_HOTKEY_ADDRESS=\"${HOTKEY_ADDRESS}\"" >> ~/.walletaccount
+        echo "export VANA_COLDKEY_PRIVATE_KEY=\"${COLDKEY_PRIVATE_KEY}\"" >> ~/.vanawallet
+        echo "export VANA_HOTKEY_PRIVATE_KEY=\"${HOTKEY_PRIVATE_KEY}\"" >> ~/.vanawallet
+        echo "export VANA_COLDKEY_ADDRESS=\"${COLDKEY_ADDRESS}\"" >> ~/.vanawallet
+        echo "export VANA_HOTKEY_ADDRESS=\"${HOTKEY_ADDRESS}\"" >> ~/.vanawallet
         
-        echo "Private keys and addresses have been saved to ~/.walletaccount"
+        echo "Private keys and addresses have been saved to ~/.vanawallet"
     else
         echo "Failed to export one or both private keys"
     fi
@@ -340,7 +327,7 @@ setup_dlp_smart_contracts() {
     cd "$HOME/vana-dlp-chatgpt"
     
     # Load existing environment variables
-    source ~/.walletaccount 2>/dev/null || true
+    source ~/.vanawallet 2>/dev/null || true
     
     # Check validator info variables
     if [ -z "$VANA_VALIDATOR_NAME" ]; then
@@ -380,34 +367,34 @@ setup_dlp_smart_contracts() {
         read -p "Enter DLP_TOKEN_SYMBOL: " VANA_DLP_TOKEN_SYMBOL
     fi
 
-    # Update .walletaccount file
-    if [ -f ~/.walletaccount ]; then
+    # Update .vanawallet file
+    if [ -f ~/.vanawallet ]; then
         # Remove existing entries
-        sed -i "/VANA_VALIDATOR_NAME/d" ~/.walletaccount
-        sed -i "/VANA_VALIDATOR_EMAIL/d" ~/.walletaccount
-        sed -i "/VANA_KEY_EXPIRY/d" ~/.walletaccount
-        sed -i "/VANA_DLP_NAME/d" ~/.walletaccount
-        sed -i "/VANA_DLP_TOKEN_NAME/d" ~/.walletaccount
-        sed -i "/VANA_DLP_TOKEN_SYMBOL/d" ~/.walletaccount
+        sed -i "/VANA_VALIDATOR_NAME/d" ~/.vanawallet
+        sed -i "/VANA_VALIDATOR_EMAIL/d" ~/.vanawallet
+        sed -i "/VANA_KEY_EXPIRY/d" ~/.vanawallet
+        sed -i "/VANA_DLP_NAME/d" ~/.vanawallet
+        sed -i "/VANA_DLP_TOKEN_NAME/d" ~/.vanawallet
+        sed -i "/VANA_DLP_TOKEN_SYMBOL/d" ~/.vanawallet
         
         # Add/update entries
-        echo "export VANA_VALIDATOR_NAME=\"${VANA_VALIDATOR_NAME}\"" >> ~/.walletaccount
-        echo "export VANA_VALIDATOR_EMAIL=\"${VANA_VALIDATOR_EMAIL}\"" >> ~/.walletaccount
-        echo "export VANA_KEY_EXPIRY=\"${VANA_KEY_EXPIRY}\"" >> ~/.walletaccount
-        echo "export VANA_DLP_NAME=\"${VANA_DLP_NAME}\"" >> ~/.walletaccount
-        echo "export VANA_DLP_TOKEN_NAME=\"${VANA_DLP_TOKEN_NAME}\"" >> ~/.walletaccount
-        echo "export VANA_DLP_TOKEN_SYMBOL=\"${VANA_DLP_TOKEN_SYMBOL}\"" >> ~/.walletaccount
+        echo "export VANA_VALIDATOR_NAME=\"${VANA_VALIDATOR_NAME}\"" >> ~/.vanawallet
+        echo "export VANA_VALIDATOR_EMAIL=\"${VANA_VALIDATOR_EMAIL}\"" >> ~/.vanawallet
+        echo "export VANA_KEY_EXPIRY=\"${VANA_KEY_EXPIRY}\"" >> ~/.vanawallet
+        echo "export VANA_DLP_NAME=\"${VANA_DLP_NAME}\"" >> ~/.vanawallet
+        echo "export VANA_DLP_TOKEN_NAME=\"${VANA_DLP_TOKEN_NAME}\"" >> ~/.vanawallet
+        echo "export VANA_DLP_TOKEN_SYMBOL=\"${VANA_DLP_TOKEN_SYMBOL}\"" >> ~/.vanawallet
         
         # Add wallet info if manually entered
         if [[ $continue_input == "y" ]]; then
-            sed -i "/VANA_COLDKEY_ADDRESS/d" ~/.walletaccount
-            sed -i "/VANA_COLDKEY_PRIVATE_KEY/d" ~/.walletaccount
-            echo "export VANA_COLDKEY_ADDRESS=\"${VANA_COLDKEY_ADDRESS}\"" >> ~/.walletaccount
-            echo "export VANA_COLDKEY_PRIVATE_KEY=\"${VANA_COLDKEY_PRIVATE_KEY}\"" >> ~/.walletaccount
+            sed -i "/VANA_COLDKEY_ADDRESS/d" ~/.vanawallet
+            sed -i "/VANA_COLDKEY_PRIVATE_KEY/d" ~/.vanawallet
+            echo "export VANA_COLDKEY_ADDRESS=\"${VANA_COLDKEY_ADDRESS}\"" >> ~/.vanawallet
+            echo "export VANA_COLDKEY_PRIVATE_KEY=\"${VANA_COLDKEY_PRIVATE_KEY}\"" >> ~/.vanawallet
         fi
     else
-        # Create new .walletaccount file
-        cat > ~/.walletaccount << EOL
+        # Create new .vanawallet file
+        cat > ~/.vanawallet << EOL
 export VANA_VALIDATOR_NAME="${VANA_VALIDATOR_NAME}"
 export VANA_VALIDATOR_EMAIL="${VANA_VALIDATOR_EMAIL}"
 export VANA_KEY_EXPIRY="${VANA_KEY_EXPIRY}"
@@ -417,16 +404,16 @@ export VANA_DLP_TOKEN_SYMBOL="${VANA_DLP_TOKEN_SYMBOL}"
 EOL
         # Add wallet info if manually entered
         if [[ $continue_input == "y" ]]; then
-            echo "export VANA_COLDKEY_ADDRESS=\"${VANA_COLDKEY_ADDRESS}\"" >> ~/.walletaccount
-            echo "export VANA_COLDKEY_PRIVATE_KEY=\"${VANA_COLDKEY_PRIVATE_KEY}\"" >> ~/.walletaccount
+            echo "export VANA_COLDKEY_ADDRESS=\"${VANA_COLDKEY_ADDRESS}\"" >> ~/.vanawallet
+            echo "export VANA_COLDKEY_PRIVATE_KEY=\"${VANA_COLDKEY_PRIVATE_KEY}\"" >> ~/.vanawallet
         fi
     fi
 
-    # Ensure .walletaccount is sourced
-    if ! grep -q "source ~/.walletaccount" ~/.profile; then
-        echo 'source ~/.walletaccount' >> ~/.profile
+    # Ensure .vanawallet is sourced
+    if ! grep -q "source ~/.vanawallet" ~/.profile; then
+        echo 'source ~/.vanawallet' >> ~/.profile
     fi
-    source ~/.walletaccount
+    source ~/.vanawallet
 
     # Continue with keygen.sh
     expect << EOF
@@ -471,25 +458,25 @@ EOF
         echo "VANA_DLP_TOKEN_MOKSHA_CONTRACT: $VANA_DLP_TOKEN_MOKSHA_CONTRACT"
         echo "VANA_DLP_MOKSHA_CONTRACT: $VANA_DLP_MOKSHA_CONTRACT"
         
-        # Update .walletaccount with new contract addresses
-        if [ -f ~/.walletaccount ]; then
+        # Update .vanawallet with new contract addresses
+        if [ -f ~/.vanawallet ]; then
             # Remove existing contract addresses if they exist
-            sed -i '/VANA_DLP_TOKEN_MOKSHA_CONTRACT/d' ~/.walletaccount
-            sed -i '/VANA_DLP_MOKSHA_CONTRACT/d' ~/.walletaccount
+            sed -i '/VANA_DLP_TOKEN_MOKSHA_CONTRACT/d' ~/.vanawallet
+            sed -i '/VANA_DLP_MOKSHA_CONTRACT/d' ~/.vanawallet
             
             # Add new contract addresses
-            echo "export VANA_DLP_TOKEN_MOKSHA_CONTRACT=\"${VANA_DLP_TOKEN_MOKSHA_CONTRACT}\"" >> ~/.walletaccount
-            echo "export VANA_DLP_MOKSHA_CONTRACT=\"${VANA_DLP_MOKSHA_CONTRACT}\"" >> ~/.walletaccount
+            echo "export VANA_DLP_TOKEN_MOKSHA_CONTRACT=\"${VANA_DLP_TOKEN_MOKSHA_CONTRACT}\"" >> ~/.vanawallet
+            echo "export VANA_DLP_MOKSHA_CONTRACT=\"${VANA_DLP_MOKSHA_CONTRACT}\"" >> ~/.vanawallet
         else
-            # Create new .walletaccount file with contract addresses
-            cat > ~/.walletaccount << EOL
+            # Create new .vanawallet file with contract addresses
+            cat > ~/.vanawallet << EOL
 export VANA_DLP_TOKEN_MOKSHA_CONTRACT="${VANA_DLP_TOKEN_MOKSHA_CONTRACT}"
 export VANA_DLP_MOKSHA_CONTRACT="${VANA_DLP_MOKSHA_CONTRACT}"
 EOL
         fi
         
-        source ~/.walletaccount
-        echo "Contract addresses have been saved to ~/.walletaccount"
+        source ~/.vanawallet
+        echo "Contract addresses have been saved to ~/.vanawallet"
     else
         echo "Failed to capture contract addresses from deployment output"
         return 1
@@ -500,26 +487,26 @@ verifyF() {
     set_env
     cd "$HOME/vana-dlp-smart-contracts"
     
-    # Load environment variables from .walletaccount
-    source ~/.walletaccount 2>/dev/null || true
+    # Load environment variables from .vanawallet
+    source ~/.vanawallet 2>/dev/null || true
     
     # Check if contract addresses exist
     if [ -z "$VANA_DLP_TOKEN_MOKSHA_CONTRACT" ] || [ -z "$VANA_DLP_MOKSHA_CONTRACT" ]; then
-        echo "Contract addresses not found in .walletaccount"
+        echo "Contract addresses not found in .vanawallet"
         echo "Please run option 3 first to deploy contracts, or enter addresses manually"
         read -p "Would you like to enter addresses manually? (y/n): " manual_input
         if [[ $manual_input == "y" ]]; then
             read -p "DLP_TOKEN_MOKSHA_CONTRACT: " VANA_DLP_TOKEN_MOKSHA_CONTRACT
             read -p "DLP_MOKSHA_CONTRACT: " VANA_DLP_MOKSHA_CONTRACT
             
-            # Save to .walletaccount
-            if [ -f ~/.walletaccount ]; then
-                sed -i '/VANA_DLP_TOKEN_MOKSHA_CONTRACT/d' ~/.walletaccount
-                sed -i '/VANA_DLP_MOKSHA_CONTRACT/d' ~/.walletaccount
+            # Save to .vanawallet
+            if [ -f ~/.vanawallet ]; then
+                sed -i '/VANA_DLP_TOKEN_MOKSHA_CONTRACT/d' ~/.vanawallet
+                sed -i '/VANA_DLP_MOKSHA_CONTRACT/d' ~/.vanawallet
             fi
-            echo "export VANA_DLP_TOKEN_MOKSHA_CONTRACT=\"${VANA_DLP_TOKEN_MOKSHA_CONTRACT}\"" >> ~/.walletaccount
-            echo "export VANA_DLP_MOKSHA_CONTRACT=\"${VANA_DLP_MOKSHA_CONTRACT}\"" >> ~/.walletaccount
-            source ~/.walletaccount
+            echo "export VANA_DLP_TOKEN_MOKSHA_CONTRACT=\"${VANA_DLP_TOKEN_MOKSHA_CONTRACT}\"" >> ~/.vanawallet
+            echo "export VANA_DLP_MOKSHA_CONTRACT=\"${VANA_DLP_MOKSHA_CONTRACT}\"" >> ~/.vanawallet
+            source ~/.vanawallet
         else
             echo "Verification cancelled"
             return 1
@@ -528,18 +515,18 @@ verifyF() {
     
     # Check if DLP token information exists
     if [ -z "$VANA_DLP_TOKEN_NAME" ] || [ -z "$VANA_DLP_TOKEN_SYMBOL" ]; then
-        echo "DLP token information not found in .walletaccount"
+        echo "DLP token information not found in .vanawallet"
         read -p "Enter DLP_TOKEN_NAME: " VANA_DLP_TOKEN_NAME
         read -p "Enter DLP_TOKEN_SYMBOL: " VANA_DLP_TOKEN_SYMBOL
         
-        # Save to .walletaccount
-        if [ -f ~/.walletaccount ]; then
-            sed -i '/VANA_DLP_TOKEN_NAME/d' ~/.walletaccount
-            sed -i '/VANA_DLP_TOKEN_SYMBOL/d' ~/.walletaccount
+        # Save to .vanawallet
+        if [ -f ~/.vanawallet ]; then
+            sed -i '/VANA_DLP_TOKEN_NAME/d' ~/.vanawallet
+            sed -i '/VANA_DLP_TOKEN_SYMBOL/d' ~/.vanawallet
         fi
-        echo "export VANA_DLP_TOKEN_NAME=\"${VANA_DLP_TOKEN_NAME}\"" >> ~/.walletaccount
-        echo "export VANA_DLP_TOKEN_SYMBOL=\"${VANA_DLP_TOKEN_SYMBOL}\"" >> ~/.walletaccount
-        source ~/.walletaccount
+        echo "export VANA_DLP_TOKEN_NAME=\"${VANA_DLP_TOKEN_NAME}\"" >> ~/.vanawallet
+        echo "export VANA_DLP_TOKEN_SYMBOL=\"${VANA_DLP_TOKEN_SYMBOL}\"" >> ~/.vanawallet
+        source ~/.vanawallet
     fi
     
     echo "Verifying contracts..."
@@ -566,33 +553,33 @@ run() {
     set_env
     cd "$HOME/vana-dlp-chatgpt"
     
-    # Load environment variables from .walletaccount
-    source ~/.walletaccount 2>/dev/null || true
+    # Load environment variables from .vanawallet
+    source ~/.vanawallet 2>/dev/null || true
     
     # Check if wallet configuration exists
     if [ -z "$VANA_WALLET_NAME" ] || [ -z "$VANA_HOTKEY_NAME" ] || [ -z "$VANA_WALLET_PASSWORD" ]; then
-        echo "Wallet configuration not found in .walletaccount"
+        echo "Wallet configuration not found in .vanawallet"
         echo "Please run option 1 first to set up wallet configuration"
         return 1
     fi
     
     # Check if contract addresses exist
     if [ -z "$VANA_DLP_TOKEN_MOKSHA_CONTRACT" ] || [ -z "$VANA_DLP_MOKSHA_CONTRACT" ]; then
-        echo "Contract addresses not found in .walletaccount"
+        echo "Contract addresses not found in .vanawallet"
         echo "Please run option 3 first to deploy contracts, or enter addresses manually"
         read -p "Would you like to enter addresses manually? (y/n): " manual_input
         if [[ $manual_input == "y" ]]; then
             read -p "DLP_TOKEN_MOKSHA_CONTRACT: " VANA_DLP_TOKEN_MOKSHA_CONTRACT
             read -p "DLP_MOKSHA_CONTRACT: " VANA_DLP_MOKSHA_CONTRACT
             
-            # Save to .walletaccount
-            if [ -f ~/.walletaccount ]; then
-                sed -i '/VANA_DLP_TOKEN_MOKSHA_CONTRACT/d' ~/.walletaccount
-                sed -i '/VANA_DLP_MOKSHA_CONTRACT/d' ~/.walletaccount
+            # Save to .vanawallet
+            if [ -f ~/.vanawallet ]; then
+                sed -i '/VANA_DLP_TOKEN_MOKSHA_CONTRACT/d' ~/.vanawallet
+                sed -i '/VANA_DLP_MOKSHA_CONTRACT/d' ~/.vanawallet
             fi
-            echo "export VANA_DLP_TOKEN_MOKSHA_CONTRACT=\"${VANA_DLP_TOKEN_MOKSHA_CONTRACT}\"" >> ~/.walletaccount
-            echo "export VANA_DLP_MOKSHA_CONTRACT=\"${VANA_DLP_MOKSHA_CONTRACT}\"" >> ~/.walletaccount
-            source ~/.walletaccount
+            echo "export VANA_DLP_TOKEN_MOKSHA_CONTRACT=\"${VANA_DLP_TOKEN_MOKSHA_CONTRACT}\"" >> ~/.vanawallet
+            echo "export VANA_DLP_MOKSHA_CONTRACT=\"${VANA_DLP_MOKSHA_CONTRACT}\"" >> ~/.vanawallet
+            source ~/.vanawallet
         else
             echo "Run cancelled"
             return 1
@@ -603,12 +590,12 @@ run() {
     if [ -z "$OPENAI_API_KEY" ]; then
         read -p "Enter OpenAI API Key: " OPENAI_API_KEY
         
-        # Save to .walletaccount
-        if [ -f ~/.walletaccount ]; then
-            sed -i '/OPENAI_API_KEY/d' ~/.walletaccount
+        # Save to .vanawallet
+        if [ -f ~/.vanawallet ]; then
+            sed -i '/OPENAI_API_KEY/d' ~/.vanawallet
         fi
-        echo "export OPENAI_API_KEY=\"${OPENAI_API_KEY}\"" >> ~/.walletaccount
-        source ~/.walletaccount
+        echo "export OPENAI_API_KEY=\"${OPENAI_API_KEY}\"" >> ~/.vanawallet
+        source ~/.vanawallet
     fi
     
     # Create .env file with necessary variables
@@ -633,7 +620,7 @@ EOF
     expect eof
 EOF
     
-    # Use VANA_HOTKEY_ADDRESS from .walletaccount
+    # Use VANA_HOTKEY_ADDRESS from .vanawallet
     echo "Using hotkey address: ${VANA_HOTKEY_ADDRESS}"
     
     # Approve validator using expect
@@ -682,8 +669,8 @@ log(){
 
 set_all_env_vars() {
     # Load existing configuration first
-    if [ -f ~/.walletaccount ]; then
-        source ~/.walletaccount
+    if [ -f ~/.vanawallet ]; then
+        source ~/.vanawallet
     fi
     
     echo "Setting up all environment variables..."
@@ -707,10 +694,10 @@ export VANA_WALLET_NAME="${VANA_WALLET_NAME}"
 # ... other configurations ...
 EOL
     
-    # Move temporary file to .walletaccount
-    mv "$TEMP_CONFIG" ~/.walletaccount
+    # Move temporary file to .vanawallet
+    mv "$TEMP_CONFIG" ~/.vanawallet
     
-    source ~/.walletaccount
+    source ~/.vanawallet
     echo "Configuration updated successfully"
 }
 
