@@ -6,10 +6,12 @@ install_dependencies() {
 	sudo add-apt-repository ppa:deadsnakes/ppa
 	sudo apt update
 	sudo apt install python3.11 python3.11-venv python3.11-dev -y
-    
+    sudo apt -y install pipx
+    sudo pipx ensurepath
+    sudo pipx install poetry
 	python3.11 --version
-	curl -sSL https://install.python-poetry.org | python3 -
-    suto apt install python3-poetry -y
+	# curl -sSL https://install.python-poetry.org | python3 -
+    # suto apt install python3-poetry -y
 	
 	# PATH 설정이 없을 경우에만 추가
 	if ! grep -q 'export PATH="$HOME/.local/bin:$PATH"' $HOME/.bashrc; then
