@@ -748,8 +748,9 @@ main_menu() {
         echo "4. Setup DLP Smart Contracts"
         echo "5. Verify"
         echo "6. Run"
-        echo "7. Log"
-        echo "8. Exit"
+        echo "7. Service"
+        echo "8. Log"
+        echo "9. Exit"
         echo "========================================"
         
         read -p "Enter choice (1-8): " choice
@@ -773,10 +774,13 @@ main_menu() {
             6)
                 run
                 ;;
-            7)
-                log
+            7 ) 
+                service
                 ;;
             8)
+                log
+                ;;
+            9)
                 echo "Exiting..."
                 exit 0
                 ;;
