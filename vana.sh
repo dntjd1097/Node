@@ -444,7 +444,8 @@ verifyF() {
 run() {
     set_env
     cd "$HOME/vana-dlp-chatgpt"
-    
+    public_key=$(cat /root/vana-dlp-chatgpt/public_key_base64.asc)
+
     # Load environment variables from .vanawallet
     source ~/.vanawallet 2>/dev/null || true
     
