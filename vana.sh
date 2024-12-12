@@ -677,16 +677,16 @@ EOL
     # Export coldkey using expect
     echo "Exporting coldkey..."
     TEMP_COLDKEY=$(mktemp)
-    expect << EOF | tee "$TEMP_COLDKEY"
-    spawn ./vanacli wallet export_private_key --wallet.name "$WALLET_NAME" --key.type coldkey
-    expect "Enter key type"
-    send "coldkey\r"
-    expect "Do you understand the risks?"
-    send "yes\r"
-    expect "Enter your coldkey password:"
-    send "$WALLET_PASSWORD\r"
-    expect eof
-EOF
+    expect -c "
+        spawn ./vanacli wallet export_private_key --wallet.name \"$WALLET_NAME\" --key.type coldkey
+        expect \"Enter key type\"
+        send \"coldkey\r\"
+        expect \"Do you understand the risks?\"
+        send \"yes\r\"
+        expect \"Enter your coldkey password:\"
+        send \"$WALLET_PASSWORD\r\"
+        expect eof
+    " | tee "$TEMP_COLDKEY"
     COLDKEY_PRIVATE_KEY=$(grep -oP '0x[a-fA-F0-9]{64}' "$TEMP_COLDKEY" | head -n 1)
     rm "$TEMP_COLDKEY"
 
@@ -700,16 +700,16 @@ EOF
     # Export hotkey using expect
     echo "Exporting hotkey..."
     TEMP_HOTKEY=$(mktemp)
-    expect << EOF | tee "$TEMP_HOTKEY"
-    spawn ./vanacli wallet export_private_key --wallet.name "$HOTKEY_NAME" --key.type hotkey
-    expect "Enter key type"
-    send "hotkey\r"
-    expect "Do you understand the risks?"
-    send "yes\r"
-    expect "Enter your hotkey password:"
-    send "$WALLET_PASSWORD\r"
-    expect eof
-EOF
+    expect -c "
+        spawn ./vanacli wallet export_private_key --wallet.name \"$HOTKEY_NAME\" --key.type hotkey
+        expect \"Enter key type\"
+        send \"hotkey\r\"
+        expect \"Do you understand the risks?\"
+        send \"yes\r\"
+        expect \"Enter your hotkey password:\"
+        send \"$WALLET_PASSWORD\r\"
+        expect eof
+    " | tee "$TEMP_HOTKEY"
     HOTKEY_PRIVATE_KEY=$(grep -oP '0x[a-fA-F0-9]{64}' "$TEMP_HOTKEY" | head -n 1)
     rm "$TEMP_HOTKEY"
     
