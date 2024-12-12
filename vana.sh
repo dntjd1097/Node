@@ -163,7 +163,7 @@ import_wallet() {
     echo "Importing coldkey..."
     # Regenerate coldkey with cleaned mnemonic
     expect << EOF
-    spawn ./vanacli w regen_coldkey --mnemonic "$VANA_COLDKEY_MNEMONIC"
+    spawn ./vanacli w regen_coldkey --mnemonic $VANA_COLDKEY_MNEMONIC
     expect "Enter wallet name"
     send "$VANA_WALLET_NAME\r"
     expect "Specify password for key encryption:"
@@ -176,7 +176,7 @@ EOF
     echo "Importing hotkey..."
     # Regenerate hotkey with cleaned mnemonic
     expect << EOF
-    spawn ./vanacli w regen_hotkey --mnemonic "$VANA_HOTKEY_MNEMONIC"
+    spawn ./vanacli w regen_hotkey --mnemonic $VANA_HOTKEY_MNEMONIC
     expect "Enter wallet name"
     send "$VANA_WALLET_NAME\r"
     expect "Enter hotkey name"
