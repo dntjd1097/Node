@@ -62,7 +62,20 @@ create_wallet_config() {
     update_vanawallet
 }
 
-download() {
+download_and_setup() {
+    # Load existing configuration first
+    if [ -f ~/.vanawallet ]; then
+        source ~/.vanawallet
+    fi
+    
+    # Create temporary file for new configurations
+    TEMP_CONFIG=$(mktemp)
+    
+    # Save existing configurations to temporary file
+    if [ -f ~/.vanawallet ]; then
+        cat ~/.vanawallet > "$TEMP_CONFIG"
+    fi
+    
     cd $HOME
     apt install jq -y
     apt install git -y
@@ -73,105 +86,240 @@ download() {
     cd "$TARGET_DIR"
     poetry install
     pip install vana -y
-    echo "Download completed successfully"
-}
-
-setup_wallet() {
-    while true; do
-        echo "========== WALLET SETUP MENU =========="
-        echo "1. Create New Wallet"
-        echo "2. Import Existing Wallet"
-        echo "3. Delete Wallet"
-        echo "4. Back to Main Menu"
-        echo "====================================="
+    
+    # Load existing configuration
+    source ~/.vanawallet 2>/dev/null || true
+    
+    # Set default wallet names
+    VANA_WALLET_NAME="default"
+    VANA_HOTKEY_NAME="default"
+    
+    # Check if we have existing mnemonics
+    if [ ! -z "$VANA_COLDKEY_MNEMONIC" ] && [ ! -z "$VANA_HOTKEY_MNEMONIC" ]; then
+        echo "Found existing mnemonics, regenerating keys..."
         
-        read -p "Enter choice (1-4): " wallet_choice
+        # Clean up mnemonics (remove extra spaces and special characters)
+        VANA_COLDKEY_MNEMONIC=$(echo "$VANA_COLDKEY_MNEMONIC" | tr -d '"' | xargs)
+        VANA_HOTKEY_MNEMONIC=$(echo "$VANA_HOTKEY_MNEMONIC" | tr -d '"' | xargs)
+        
+        # Debug output
+        echo "Cleaned Coldkey Mnemonic: $VANA_COLDKEY_MNEMONIC"
+        echo "Cleaned Hotkey Mnemonic: $VANA_HOTKEY_MNEMONIC"
+        
+        # Remove existing wallet directory
+        rm -rf "$HOME/.vana/wallets/default"
+        
+        # Create wallet directory
+        mkdir -p "$HOME/.vana/wallets/default/hotkeys"
+        
+        # Regenerate coldkey with cleaned mnemonic
+        COLDKEY_CMD="./vanacli w regen_coldkey --mnemonic \"$VANA_COLDKEY_MNEMONIC\""
+        echo "Executing: $COLDKEY_CMD"
+        
+        expect << EOF
+        set timeout -1
+        spawn $COLDKEY_CMD
+        expect "Enter wallet name"
+        send "default\r"
+        expect "Specify password for key encryption:"
+        send "$VANA_WALLET_PASSWORD\r"
+        expect "Retype your password:"
+        send "$VANA_WALLET_PASSWORD\r"
+        expect eof
+EOF
+        
+        # Check if coldkey generation was successful
+        if [ $? -eq 0 ]; then
+            echo "Coldkey regenerated successfully"
+        else
+            echo "Error regenerating coldkey"
+            return 1
+        fi
+        
+        # Regenerate hotkey with cleaned mnemonic
+        HOTKEY_CMD="./vanacli w regen_hotkey --mnemonic \"$VANA_HOTKEY_MNEMONIC\""
+        echo "Executing: $HOTKEY_CMD"
+        
+        expect << EOF
+        set timeout -1
+        spawn $HOTKEY_CMD
+        expect "Enter wallet name"
+        send "default\r"
+        expect "Enter hotkey name"
+        send "default\r"
+        expect eof
+EOF
+        
+        # Check if hotkey generation was successful
+        if [ $? -eq 0 ]; then
+            echo "Hotkey regenerated successfully"
+        else
+            echo "Error regenerating hotkey"
+            return 1
+        fi
+        
+        echo "Keys regenerated successfully"
+    else
+        echo "No existing mnemonics found, creating new wallet..."
+        # Create new wallet
+        TEMP_MNEMONIC=$(mktemp)
+        
+        expect << EOF | tee "$TEMP_MNEMONIC"
+        spawn ./vanacli wallet create --wallet.name $VANA_WALLET_NAME --wallet.hotkey $VANA_HOTKEY_NAME
+        expect "Your coldkey mnemonic phrase:"
+        expect -re {│\s+([\w\s]+)\s+│}
+        set coldkey_mnemonic \$expect_out(1,string)
+        expect "Specify password for key encryption:"
+        send "$VANA_WALLET_PASSWORD\r"
+        expect "Retype your password:"
+        send "$VANA_WALLET_PASSWORD\r"
+        expect "Your hotkey mnemonic phrase:"
+        expect -re {│\s+([\w\s]+)\s+│}
+        set hotkey_mnemonic \$expect_out(1,string)
+        expect eof
+EOF
+        
+        # Extract and save mnemonics
+        VANA_COLDKEY_MNEMONIC=$(grep -A 2 "Your coldkey mnemonic phrase:" "$TEMP_MNEMONIC" | tail -n 1 | sed 's/│//g' | sed -r "s/\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g" | xargs)
+        VANA_HOTKEY_MNEMONIC=$(grep -A 2 "Your hotkey mnemonic phrase:" "$TEMP_MNEMONIC" | tail -n 1 | sed 's/│//g' | sed -r "s/\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[mGK]//g" | xargs)
+        
+        # Save mnemonics
+        cat > ~/.vanawallet << EOL
+VANA_COLDKEY_MNEMONIC="$VANA_COLDKEY_MNEMONIC"
+VANA_HOTKEY_MNEMONIC="$VANA_HOTKEY_MNEMONIC"
+EOL
+        
+        rm "$TEMP_MNEMONIC"
+        echo "New wallet created and mnemonics saved to ~/.vanawallet"
+    fi
+    
+    # Update wallet configuration
+    if [ -f ~/.vanawallet ]; then
+        sed -i "/VANA_WALLET_NAME/d" ~/.vanawallet
+        sed -i "/VANA_HOTKEY_NAME/d" ~/.vanawallet
+        sed -i "/VANA_WALLET_PASSWORD/d" ~/.vanawallet
+    fi
+    
+    cat >> ~/.vanawallet << EOL
+export VANA_WALLET_NAME="default"
+export VANA_HOTKEY_NAME="default"
+export VANA_WALLET_PASSWORD="$VANA_WALLET_PASSWORD"
+EOL
 
-        case $wallet_choice in
-            1)
-                create_new_wallet
-                ;;
-            2)
-                import_wallet
-                ;;
-            3)
-                delete_wallet
-                ;;
-            4)
-                return
-                ;;
-            *)
-                echo "Invalid option, please try again."
-                ;;
-        esac
-    done
+    source ~/.vanawallet
+    echo "Setup completed successfully"
 }
 
-create_new_wallet() {
+
+export_private_key() {
+    set_env
     cd "$HOME/vana-dlp-chatgpt"
     
-    # Create new wallet
-    TEMP_MNEMONIC=$(mktemp)
+    # Install web3 if not installed
+    if ! python3 -c "import web3" 2>/dev/null; then
+        echo "Installing web3 package..."
+        pip3 install web3
+    fi
     
-    expect << EOF | tee "$TEMP_MNEMONIC"
-    spawn ./vanacli wallet create
-    expect "Enter wallet name"
-    send "default\r"
-    expect "Enter hotkey name"
-    send "default\r"
-    expect "Your coldkey mnemonic phrase:"
-    expect -re {│\s+([\w\s]+)\s+│}
-    set coldkey_mnemonic \$expect_out(1,string)
-    expect "Specify password for key encryption:"
-    send "$VANA_WALLET_PASSWORD\r"
-    expect "Retype your password:"
-    send "$VANA_WALLET_PASSWORD\r"
-    expect "Your hotkey mnemonic phrase:"
-    expect -re {│\s+([\w\s]+)\s+│}
-    set hotkey_mnemonic \$expect_out(1,string)
-    expect eof
-EOF
-    
-    echo "New wallet created successfully"
-}
+    # Create temporary Python script for address generation
+    cat > /tmp/generate_eth_address.py << 'EOL'
+from web3 import Web3
+import sys
 
-import_wallet() {
-    cd "$HOME/vana-dlp-chatgpt"
-    
-    read -p "Enter coldkey mnemonic: " coldkey_mnemonic
-    read -p "Enter hotkey mnemonic: " hotkey_mnemonic
-    read -s -p "Enter wallet password: " wallet_password
-    echo
-    
-    # Regenerate coldkey
-    expect << EOF
-    spawn ./vanacli w regen_coldkey --mnemonic "$coldkey_mnemonic"
-    expect "Enter wallet name"
-    send "default\r"
-    expect "Specify password for key encryption:"
-    send "$wallet_password\r"
-    expect "Retype your password:"
-    send "$wallet_password\r"
-    expect eof
-EOF
-    
-    # Regenerate hotkey
-    expect << EOF
-    spawn ./vanacli w regen_hotkey --mnemonic "$hotkey_mnemonic"
-    expect "Enter wallet name"
-    send "default\r"
-    expect "Enter hotkey name"
-    send "default\r"
-    expect eof
-EOF
-    
-    echo "Wallet imported successfully"
-}
+def get_address_from_private_key(private_key):
+    private_key = private_key.replace("0x", "")
+    w3 = Web3()
+    try:
+        account = w3.eth.account.from_key(private_key)
+        return account.address
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return None
 
-delete_wallet() {
-    read -p "Enter wallet name to delete: " wallet_name
-    rm -rf "$HOME/.vana/wallets/$wallet_name"
-    echo "Wallet deleted successfully"
+if len(sys.argv) > 1:
+    private_key = sys.argv[1]
+    address = get_address_from_private_key(private_key)
+    if address:
+        print(address)
+EOL
+    
+    # Load wallet configuration
+    source ~/.vanawallet 2>/dev/null || true
+    
+    # Use default values if not set
+    WALLET_NAME=${VANA_WALLET_NAME:-"default"}
+    HOTKEY_NAME=${VANA_HOTKEY_NAME:-"default"}
+    WALLET_PASSWORD=${VANA_WALLET_PASSWORD}
+    
+    echo "Exporting keys for wallet: $WALLET_NAME"
+    
+    # Export coldkey using expect
+    echo "Exporting coldkey..."
+    TEMP_COLDKEY=$(mktemp)
+    expect << EOF | tee "$TEMP_COLDKEY"
+    spawn ./vanacli wallet export_private_key --wallet.name "$WALLET_NAME" --key.type coldkey
+    expect "Enter key type"
+    send "coldkey\r"
+    expect "Do you understand the risks?"
+    send "yes\r"
+    expect "Enter your coldkey password:"
+    send "$WALLET_PASSWORD\r"
+    expect eof
+EOF
+    COLDKEY_PRIVATE_KEY=$(grep -oP '0x[a-fA-F0-9]{64}' "$TEMP_COLDKEY" | head -n 1)
+    rm "$TEMP_COLDKEY"
+
+    # Generate coldkey address if private key was found
+    if [ ! -z "$COLDKEY_PRIVATE_KEY" ]; then
+        echo "Generating coldkey address..."
+        COLDKEY_ADDRESS=$(python3 /tmp/generate_eth_address.py "$COLDKEY_PRIVATE_KEY")
+        echo "Coldkey Address: $COLDKEY_ADDRESS"
+    fi
+
+    # Export hotkey using expect
+    echo "Exporting hotkey..."
+    TEMP_HOTKEY=$(mktemp)
+    expect << EOF | tee "$TEMP_HOTKEY"
+    spawn ./vanacli wallet export_private_key --wallet.name "$HOTKEY_NAME" --key.type hotkey
+    expect "Enter key type"
+    send "hotkey\r"
+    expect "Do you understand the risks?"
+    send "yes\r"
+    expect "Enter your hotkey password:"
+    send "$WALLET_PASSWORD\r"
+    expect eof
+EOF
+    HOTKEY_PRIVATE_KEY=$(grep -oP '0x[a-fA-F0-9]{64}' "$TEMP_HOTKEY" | head -n 1)
+    rm "$TEMP_HOTKEY"
+    
+    # Generate hotkey address if private key was found
+    if [ ! -z "$HOTKEY_PRIVATE_KEY" ]; then
+        echo "Generating hotkey address..."
+        HOTKEY_ADDRESS=$(python3 /tmp/generate_eth_address.py "$HOTKEY_PRIVATE_KEY")
+        echo "Hotkey Address: $HOTKEY_ADDRESS"
+    fi
+    
+    # Clean up temporary Python script
+    rm /tmp/generate_eth_address.py
+    
+    # Save private keys and addresses to .vanawallet if they were successfully exported
+    if [ ! -z "$COLDKEY_PRIVATE_KEY" ] && [ ! -z "$HOTKEY_PRIVATE_KEY" ]; then
+        # Remove existing entries if they exist
+        sed -i '/VANA_COLDKEY_PRIVATE_KEY/d' ~/.vanawallet
+        sed -i '/VANA_HOTKEY_PRIVATE_KEY/d' ~/.vanawallet
+        sed -i '/VANA_COLDKEY_ADDRESS/d' ~/.vanawallet
+        sed -i '/VANA_HOTKEY_ADDRESS/d' ~/.vanawallet
+        
+        # Add new private keys and addresses
+        echo "export VANA_COLDKEY_PRIVATE_KEY=\"${COLDKEY_PRIVATE_KEY}\"" >> ~/.vanawallet
+        echo "export VANA_HOTKEY_PRIVATE_KEY=\"${HOTKEY_PRIVATE_KEY}\"" >> ~/.vanawallet
+        echo "export VANA_COLDKEY_ADDRESS=\"${COLDKEY_ADDRESS}\"" >> ~/.vanawallet
+        echo "export VANA_HOTKEY_ADDRESS=\"${HOTKEY_ADDRESS}\"" >> ~/.vanawallet
+        
+        echo "Private keys and addresses have been saved to ~/.vanawallet"
+    else
+        echo "Failed to export one or both private keys"
+    fi
 }
 
 setup_dlp_smart_contracts() {
@@ -638,43 +786,48 @@ EOL
 
 
 main_menu() {
+	sudo apt-get install -y expect
     while true; do
         echo "========== VANA VALIDATOR MENU =========="
-        echo "1. Download"
-        echo "2. Setup Wallet"
-        echo "3. Export"
-        echo "4. Setup DLP Smart Contracts"
-        echo "5. Verify"
-        echo "6. Run"
+        echo "1. Install"
+        echo "2. Export wallet"
+        echo "3. Setup DLP smart contracts"
+        echo "4. Verify"
+        echo "5. Run"
+        echo "6. Service"
         echo "7. Log"
-        echo "8. Exit"
+        echo "8. Settings"
+        echo "9. Exit"
         echo "========================================"
         
-        read -p "Enter choice (1-8): " choice
+        read -p "Enter choice (1-9): " choice
 
         case $choice in
             1)
-                download
+                download_and_setup
                 ;;
             2)
-                setup_wallet
-                ;;
-            3)
                 export_private_key
                 ;;
-            4)
+            3)
                 setup_dlp_smart_contracts
                 ;;
-            5)
+            4)
                 verifyF
                 ;;
-            6)
+            5)
                 run
+                ;;
+            6)
+                service
                 ;;
             7)
                 log
                 ;;
             8)
+                set_all_env_vars
+                ;;
+            9)
                 echo "Exiting..."
                 exit 0
                 ;;
