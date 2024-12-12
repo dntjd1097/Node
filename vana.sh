@@ -690,6 +690,7 @@ EOL
 
     # 개선된 private key 추출 방법
     COLDKEY_PRIVATE_KEY=$(grep -oP '0x[a-fA-F0-9]{64}' "$TEMP_COLDKEY" | head -n 1)
+    echo "COLDKEY_PRIVATE_KEY: $COLDKEY_PRIVATE_KEY"
     rm "$TEMP_COLDKEY"
 
     if [ ! -z "$COLDKEY_PRIVATE_KEY" ]; then
@@ -716,6 +717,7 @@ EOL
 
     # 개선된 private key 추출 방법
     HOTKEY_PRIVATE_KEY=$(grep -oP '0x[a-fA-F0-9]{64}' "$TEMP_HOTKEY" | head -n 1)
+    echo "HOTKEY_PRIVATE_KEY: $HOTKEY_PRIVATE_KEY"
     rm "$TEMP_HOTKEY"
 
     if [ ! -z "$HOTKEY_PRIVATE_KEY" ]; then
