@@ -8,7 +8,7 @@ install_dependencies() {
 	sudo apt install python3.11 python3.11-venv python3.11-dev -y
     sudo apt -y install pipx
     sudo pipx ensurepath
-    sudo pipx install poetry
+    sudo pipx install poetry --force
 	python3.11 --version
 	# curl -sSL https://install.python-poetry.org | python3 -
     # suto apt install python3-poetry -y
