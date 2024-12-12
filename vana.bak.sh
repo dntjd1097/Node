@@ -274,6 +274,8 @@ EOF
         echo "Generating coldkey address..."
         COLDKEY_ADDRESS=$(python3 /tmp/generate_eth_address.py "$COLDKEY_PRIVATE_KEY")
         echo "Coldkey Address: $COLDKEY_ADDRESS"
+    else 
+        echo "Failed to extract coldkey private key"
     fi
 
     # Export hotkey using expect
@@ -297,6 +299,8 @@ EOF
         echo "Generating hotkey address..."
         HOTKEY_ADDRESS=$(python3 /tmp/generate_eth_address.py "$HOTKEY_PRIVATE_KEY")
         echo "Hotkey Address: $HOTKEY_ADDRESS"
+    else 
+        echo "Failed to extract hotkey private key"
     fi
     
     # Clean up temporary Python script

@@ -689,19 +689,14 @@ EOL
     " | tee "$TEMP_COLDKEY"
 
     # 개선된 private key 추출 방법
-    COLDKEY_PRIVATE_KEY=$(cat "$TEMP_COLDKEY" | grep -oP '(?<=Private key: )0x[a-fA-F0-9]{64}' || grep -oP '0x[a-fA-F0-9]{64}' "$TEMP_COLDKEY")
+    COLDKEY_PRIVATE_KEY=$(grep -oP '0x[a-fA-F0-9]{64}' "$TEMP_COLDKEY" | head -n 1)
     rm "$TEMP_COLDKEY"
 
     if [ ! -z "$COLDKEY_PRIVATE_KEY" ]; then
-        echo "Found coldkey private key: $COLDKEY_PRIVATE_KEY"
         echo "Generating coldkey address..."
         COLDKEY_ADDRESS=$(python3 /tmp/generate_eth_address.py "$COLDKEY_PRIVATE_KEY")
-        if [ ! -z "$COLDKEY_ADDRESS" ]; then
-            echo "Successfully generated coldkey address: $COLDKEY_ADDRESS"
-        else
-            echo "Failed to generate coldkey address"
-        fi
-    else
+        echo "Coldkey Address: $COLDKEY_ADDRESS"
+    else 
         echo "Failed to extract coldkey private key"
     fi
 
@@ -720,19 +715,14 @@ EOL
     " | tee "$TEMP_HOTKEY"
 
     # 개선된 private key 추출 방법
-    HOTKEY_PRIVATE_KEY=$(cat "$TEMP_HOTKEY" | grep -oP '(?<=Private key: )0x[a-fA-F0-9]{64}' || grep -oP '0x[a-fA-F0-9]{64}' "$TEMP_HOTKEY")
+    HOTKEY_PRIVATE_KEY=$(grep -oP '0x[a-fA-F0-9]{64}' "$TEMP_HOTKEY" | head -n 1)
     rm "$TEMP_HOTKEY"
 
     if [ ! -z "$HOTKEY_PRIVATE_KEY" ]; then
-        echo "Found hotkey private key: $HOTKEY_PRIVATE_KEY"
         echo "Generating hotkey address..."
         HOTKEY_ADDRESS=$(python3 /tmp/generate_eth_address.py "$HOTKEY_PRIVATE_KEY")
-        if [ ! -z "$HOTKEY_ADDRESS" ]; then
-            echo "Successfully generated hotkey address: $HOTKEY_ADDRESS"
-        else
-            echo "Failed to generate hotkey address"
-        fi
-    else
+        echo "Hotkey Address: $HOTKEY_ADDRESS"
+    else 
         echo "Failed to extract hotkey private key"
     fi
     
