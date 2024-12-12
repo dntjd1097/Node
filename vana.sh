@@ -207,7 +207,7 @@ EOL
     echo "IMPORTANT: Please ensure your mnemonics are stored securely!"
 }
 
-deletdelete_wallet() {
+delete_wallet() {
     read -p "Enter wallet name to delete (default: default): " wallet_name
     wallet_name=${wallet_name:-"default"}  # 입력이 없으면 "default" 사용
     rm -rf "$HOME/.vana/wallets/$wallet_name"
