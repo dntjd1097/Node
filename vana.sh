@@ -678,7 +678,7 @@ EOL
     echo "Exporting coldkey..."
     TEMP_COLDKEY=$(mktemp)
     expect << EOF | tee "$TEMP_COLDKEY"
-    spawn ./vanacli wallet export_private_key --wallet.name "$WALLET_NAME" --key.type coldkey
+    spawn ./vanacli wallet export_private_key --wallet.name default
     expect "Enter key type"
     send "coldkey\r"
     expect "Do you understand the risks?"
@@ -704,7 +704,7 @@ EOF
     echo "Exporting hotkey..."
     TEMP_HOTKEY=$(mktemp)
     expect << EOF | tee "$TEMP_HOTKEY"
-    spawn ./vanacli wallet export_private_key --wallet.name "$WALLET_NAME" --key.type coldkey
+    spawn ./vanacli wallet export_private_key --wallet.name default
     expect "Enter key type"
     send "hotkey\r"
     expect "Do you understand the risks?"
