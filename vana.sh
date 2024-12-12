@@ -706,7 +706,7 @@ EOF
     expect << EOF | tee "$TEMP_HOTKEY"
     spawn ./vanacli wallet export_private_key --wallet.name "$WALLET_NAME" --key.type coldkey
     expect "Enter key type"
-    send "coldkey\r"
+    send "hotkey\r"
     expect "Do you understand the risks?"
     send "yes\r"
     expect "Enter your coldkey password:"
