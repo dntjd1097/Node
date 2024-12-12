@@ -10,8 +10,6 @@ install_dependencies() {
     sudo pipx ensurepath
     sudo pipx install poetry --force
 	python3.11 --version
-	# curl -sSL https://install.python-poetry.org | python3 -
-    # suto apt install python3-poetry -y
 	
 	# PATH 설정이 없을 경우에만 추가
 	if ! grep -q 'export PATH="$HOME/.local/bin:$PATH"' $HOME/.bashrc; then
@@ -31,9 +29,11 @@ install_dependencies() {
 
 	source $HOME/.bashrc
 	nvm install --lts
+    source $HOME/.bashrc
 	node -v
 	npm -v
     echo "Dependencies installed."
+    
 }
 set_env(){
 	source $HOME/.bashrc
