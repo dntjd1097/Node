@@ -162,7 +162,7 @@ import_wallet() {
     
     # Create wallet directory
     mkdir -p "$HOME/.vana/wallets/default/hotkeys"
-    
+    mkdir -p "$HOME/.vana/wallets/default/coldkeys"
     echo "Importing coldkey..."
     # Regenerate coldkey with cleaned mnemonic
     expect << EOF
