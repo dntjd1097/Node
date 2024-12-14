@@ -520,11 +520,11 @@ EOF
     # Approve validator using expect
     expect << EOF
     spawn ./vanacli dlp approve_validator --validator_address=${VANA_HOTKEY_ADDRESS}
-    expect "Enter wallet name"
+    expect "Enter wallet name (default):"
     send "${VANA_WALLET_NAME}\r"
     expect "Enter password to unlock key:"
     send "${VANA_WALLET_PASSWORD}\r"
-    expect eof
+    expect eo 
 EOF
     
     # Run the validator node
